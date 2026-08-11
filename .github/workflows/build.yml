@@ -36,20 +36,28 @@ jobs:
           name: PrivFileManager-debug
           path: app/build/outputs/apk/debug/*.apk
 
-      # 署名用Secretsが設定されている場合のみkeystoreをデコードして展開する。
-      # (Settings > Secrets and variables > Actions に以下を登録済みの前提)
-      #   ANDROID_KEYSTORE_20260801_BASE64 : keystoreファイルをbase64化したもの
-      #   KEYSTORE_PASSWORD_20260801       : keystore/鍵パスワード(共通)
-      #   KEY_ALIAS_20260801               : 鍵のエイリアス
-      - name: Decode signing keystore
-        if: ${{ secrets.ANDROID_KEYSTORE_20260801_BASE64 != '' }}
+      # `if:` 内で secrets コンテキストを直接評価できないため(Unrecognized named-value: 'secrets')、
+      # 一度 env 経由でこのstepの中で判定し、outputsとして次のstepへ渡す。
+      - name: Check signing secrets
+        id: check_signing
         env:
-          ANDROID_KEYSTORE_20260801_BASE64: ${{ secrets.ANDROID_KEYSTORE_20260801_BASE64 }}
+          KS_B64: ${{ secrets.ANDROID_KEYSTORE_20260801_BASE64 }}
         run: |
-          echo "$ANDROID_KEYSTORE_20260801_BASE64" | base64 -d > "$GITHUB_WORKSPACE/release.keystore"
+          if [ -n "$KS_B64" ]; then
+            echo "has_keystore=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_keystore=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Decode signing keystore
+        if: steps.check_signing.outputs.has_keystore == 'true'
+        env:
+          KS_B64: ${{ secrets.ANDROID_KEYSTORE_20260801_BASE64 }}
+        run: |
+          echo "$KS_B64" | base64 -d > "$GITHUB_WORKSPACE/release.keystore"
 
       - name: Build release APK (signed)
-        if: ${{ secrets.ANDROID_KEYSTORE_20260801_BASE64 != '' }}
+        if: steps.check_signing.outputs.has_keystore == 'true'
         env:
           KEYSTORE_PATH: ${{ github.workspace }}/release.keystore
           KEYSTORE_PASSWORD_20260801: ${{ secrets.KEYSTORE_PASSWORD_20260801 }}
@@ -57,7 +65,7 @@ jobs:
         run: gradle assembleRelease --no-daemon
 
       - name: Build release APK (unsigned fallback)
-        if: ${{ secrets.ANDROID_KEYSTORE_20260801_BASE64 == '' }}
+        if: steps.check_signing.outputs.has_keystore == 'false'
         run: gradle assembleRelease --no-daemon
 
       - name: Upload release APK

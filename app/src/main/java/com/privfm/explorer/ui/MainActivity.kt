@@ -174,33 +174,105 @@ class MainActivity : AppCompatActivity() {
             loadDirectory(entry.path)
             return
         }
+        openFileSmart(entry, runAsPackage = null)
+    }
+
+    /**
+     * ファイルを開く。テキスト/コード系は内部エディタ、
+     * それ以外(画像・動画・PDF・APK・不明バイナリ等)は他の一般的なファイルマネージャー同様、
+     * Android標準の「開くアプリを選択」(ACTION_VIEW chooser)へ委譲する。
+     * 対応アプリが端末に無い場合のみ内部のHexビューアへフォールバックする。
+     */
+    private fun openFileSmart(entry: FileEntry, runAsPackage: String?) {
+        binding.loadingIndicator.visibility = android.view.View.VISIBLE
         lifecycleScope.launch(Dispatchers.IO) {
-            val fs = PrivilegedFileSystem(ShellManager.current())
+            val fs = PrivilegedFileSystem(ShellManager.current(), runAsPackage)
             val kind = com.privfm.explorer.fs.FileTypeDetector.kindByExtension(entry.name)
-            val openAsText = when (kind) {
+            val preferInternalText = when (kind) {
                 com.privfm.explorer.fs.FileTypeDetector.Kind.TEXT -> true
                 com.privfm.explorer.fs.FileTypeDetector.Kind.BINARY -> false
                 com.privfm.explorer.fs.FileTypeDetector.Kind.UNKNOWN -> {
                     val peek = fs.peekFile(entry.path, maxBytes = 4096)
-                    peek.map { !com.privfm.explorer.fs.FileTypeDetector.looksLikeBinary(it) }.getOrDefault(true)
+                    peek.map { !com.privfm.explorer.fs.FileTypeDetector.looksLikeBinary(it) }.getOrDefault(false)
                 }
             }
+            withContext(Dispatchers.Main) { binding.loadingIndicator.visibility = android.view.View.GONE }
+
+            if (preferInternalText) {
+                withContext(Dispatchers.Main) { openInternalEditor(entry.path, runAsPackage) }
+                return@launch
+            }
+
+            // テキスト以外は標準の「開くアプリを選択」に委譲する
+            openWithSystemChooser(entry, runAsPackage)
+        }
+    }
+
+    private fun openInternalEditor(path: String, runAsPackage: String?) {
+        val intent = Intent(this, TextEditorActivity::class.java).apply {
+            putExtra(TextEditorActivity.EXTRA_PATH, path)
+            putExtra(TextEditorActivity.EXTRA_RUN_AS_PACKAGE, runAsPackage)
+        }
+        startActivity(intent)
+    }
+
+    private fun openBinaryViewer(path: String, runAsPackage: String?) {
+        val intent = Intent(this, BinaryViewerActivity::class.java).apply {
+            putExtra(TextEditorActivity.EXTRA_PATH, path)
+            putExtra(TextEditorActivity.EXTRA_RUN_AS_PACKAGE, runAsPackage)
+        }
+        startActivity(intent)
+    }
+
+    /**
+     * privileged経路で読んだファイルをアプリキャッシュへコピーし、
+     * FileProvider経由でAndroid標準のACTION_VIEWチューザーに渡す。
+     * 対応アプリが無ければ内部Hexビューアへフォールバックする。
+     */
+    private fun openWithSystemChooser(entry: FileEntry, runAsPackage: String?) {
+        lifecycleScope.launch(Dispatchers.IO) {
+            val fs = PrivilegedFileSystem(ShellManager.current(), runAsPackage)
+            val mime = com.privfm.explorer.util.ExternalOpener.mimeTypeFor(entry.name)
+            val result = fs.readFile(entry.path)
             withContext(Dispatchers.Main) {
-                val target = if (openAsText) TextEditorActivity::class.java else BinaryViewerActivity::class.java
-                val intent = Intent(this@MainActivity, target).apply {
-                    putExtra(TextEditorActivity.EXTRA_PATH, entry.path)
+                result.onSuccess { bytes ->
+                    try {
+                        val uri = com.privfm.explorer.util.ExternalOpener.cacheAndGetUri(this@MainActivity, bytes, entry.name)
+                        if (com.privfm.explorer.util.ExternalOpener.canResolve(this@MainActivity, uri, mime)) {
+                            startActivity(
+                                com.privfm.explorer.util.ExternalOpener.buildChooserIntent(
+                                    this@MainActivity, uri, mime, "${entry.name} を開く"
+                                )
+                            )
+                        } else {
+                            Toast.makeText(this@MainActivity, "対応する外部アプリが見つかりません。内部ビューアで開きます", Toast.LENGTH_SHORT).show()
+                            openBinaryViewer(entry.path, runAsPackage)
+                        }
+                    } catch (e: Exception) {
+                        Toast.makeText(this@MainActivity, "開けませんでした: ${e.message}", Toast.LENGTH_LONG).show()
+                        openBinaryViewer(entry.path, runAsPackage)
+                    }
+                }.onFailure {
+                    Toast.makeText(this@MainActivity, "読み込み失敗: ${it.message}", Toast.LENGTH_LONG).show()
                 }
-                startActivity(intent)
             }
         }
     }
 
     private fun onEntryLongClicked(entry: FileEntry): Boolean {
-        val options = arrayOf("削除", "リネーム", "権限確認")
+        val options = if (entry.isDirectory)
+            arrayOf("削除", "リネーム", "権限確認")
+        else
+            arrayOf("開き方を選択…", "削除", "リネーム", "権限確認")
         MaterialAlertDialogBuilder(this)
             .setTitle(entry.name)
             .setItems(options) { _, which ->
-                when (which) {
+                if (!entry.isDirectory && which == 0) {
+                    showOpenWithChooser(entry)
+                    return@setItems
+                }
+                val offset = if (entry.isDirectory) 0 else 1
+                when (which - offset) {
                     0 -> confirmDelete(entry)
                     1 -> renameEntry(entry)
                     2 -> Toast.makeText(this, entry.permissions, Toast.LENGTH_SHORT).show()
@@ -208,6 +280,21 @@ class MainActivity : AppCompatActivity() {
             }
             .show()
         return true
+    }
+
+    /** テキストエディタ / Hexビューア / 外部アプリ を明示的に選ばせるダイアログ */
+    private fun showOpenWithChooser(entry: FileEntry) {
+        val options = arrayOf("内部テキストエディタ", "内部Hexビューア", "外部アプリで開く(標準機能)")
+        MaterialAlertDialogBuilder(this)
+            .setTitle("${entry.name} の開き方")
+            .setItems(options) { _, which ->
+                when (which) {
+                    0 -> openInternalEditor(entry.path, null)
+                    1 -> openBinaryViewer(entry.path, null)
+                    2 -> openWithSystemChooser(entry, null)
+                }
+            }
+            .show()
     }
 
     private fun confirmDelete(entry: FileEntry) {

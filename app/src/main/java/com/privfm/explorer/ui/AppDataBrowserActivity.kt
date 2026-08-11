@@ -78,7 +78,7 @@ class AppDataBrowserActivity : AppCompatActivity() {
                     binding.appListView.adapter = FileAdapter(
                         items = it,
                         onClick = { entry -> onFileClicked(entry) },
-                        onLongClick = { true }
+                        onLongClick = { entry -> onFileLongClicked(entry) }
                     )
                 }.onFailure {
                     Toast.makeText(this@AppDataBrowserActivity, "エラー: ${it.message}", Toast.LENGTH_LONG).show()
@@ -93,24 +93,94 @@ class AppDataBrowserActivity : AppCompatActivity() {
             loadAppDirectory(entry.path)
             return
         }
+        openFileSmart(entry, app.packageName)
+    }
+
+    private fun onFileLongClicked(entry: FileEntry): Boolean {
+        if (entry.isDirectory) return true
+        val app = selectedApp ?: return true
+        val options = arrayOf("内部テキストエディタ", "内部Hexビューア", "外部アプリで開く(標準機能)")
+        com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+            .setTitle("${entry.name} の開き方")
+            .setItems(options) { _, which ->
+                when (which) {
+                    0 -> openInternalEditor(entry.path, app.packageName)
+                    1 -> openBinaryViewer(entry.path, app.packageName)
+                    2 -> openWithSystemChooser(entry, app.packageName)
+                }
+            }
+            .show()
+        return true
+    }
+
+    private fun openInternalEditor(path: String, runAsPackage: String?) {
+        val intent = Intent(this, TextEditorActivity::class.java).apply {
+            putExtra(TextEditorActivity.EXTRA_PATH, path)
+            putExtra(TextEditorActivity.EXTRA_RUN_AS_PACKAGE, runAsPackage)
+        }
+        startActivity(intent)
+    }
+
+    private fun openBinaryViewer(path: String, runAsPackage: String?) {
+        val intent = Intent(this, BinaryViewerActivity::class.java).apply {
+            putExtra(TextEditorActivity.EXTRA_PATH, path)
+            putExtra(TextEditorActivity.EXTRA_RUN_AS_PACKAGE, runAsPackage)
+        }
+        startActivity(intent)
+    }
+
+    /**
+     * テキスト/コード系は内部エディタ、それ以外は他のファイルマネージャー同様
+     * Android標準の「開くアプリを選択」(ACTION_VIEW chooser)へ委譲する。
+     */
+    private fun openFileSmart(entry: FileEntry, runAsPackage: String?) {
         lifecycleScope.launch(Dispatchers.IO) {
-            val fs = PrivilegedFileSystem(ShellManager.current(), app.packageName)
+            val fs = PrivilegedFileSystem(ShellManager.current(), runAsPackage)
             val kind = FileTypeDetector.kindByExtension(entry.name)
-            val openAsText = when (kind) {
+            val preferInternalText = when (kind) {
                 FileTypeDetector.Kind.TEXT -> true
                 FileTypeDetector.Kind.BINARY -> false
                 FileTypeDetector.Kind.UNKNOWN -> {
                     val peek = fs.peekFile(entry.path, maxBytes = 4096)
-                    peek.map { !FileTypeDetector.looksLikeBinary(it) }.getOrDefault(true)
+                    peek.map { !FileTypeDetector.looksLikeBinary(it) }.getOrDefault(false)
                 }
             }
             withContext(Dispatchers.Main) {
-                val target = if (openAsText) TextEditorActivity::class.java else BinaryViewerActivity::class.java
-                val intent = Intent(this@AppDataBrowserActivity, target).apply {
-                    putExtra(TextEditorActivity.EXTRA_PATH, entry.path)
-                    putExtra(TextEditorActivity.EXTRA_RUN_AS_PACKAGE, app.packageName)
+                if (preferInternalText) {
+                    openInternalEditor(entry.path, runAsPackage)
+                } else {
+                    openWithSystemChooser(entry, runAsPackage)
                 }
-                startActivity(intent)
+            }
+        }
+    }
+
+    private fun openWithSystemChooser(entry: FileEntry, runAsPackage: String?) {
+        lifecycleScope.launch(Dispatchers.IO) {
+            val fs = PrivilegedFileSystem(ShellManager.current(), runAsPackage)
+            val mime = com.privfm.explorer.util.ExternalOpener.mimeTypeFor(entry.name)
+            val result = fs.readFile(entry.path)
+            withContext(Dispatchers.Main) {
+                result.onSuccess { bytes ->
+                    try {
+                        val uri = com.privfm.explorer.util.ExternalOpener.cacheAndGetUri(this@AppDataBrowserActivity, bytes, entry.name)
+                        if (com.privfm.explorer.util.ExternalOpener.canResolve(this@AppDataBrowserActivity, uri, mime)) {
+                            startActivity(
+                                com.privfm.explorer.util.ExternalOpener.buildChooserIntent(
+                                    this@AppDataBrowserActivity, uri, mime, "${entry.name} を開く"
+                                )
+                            )
+                        } else {
+                            Toast.makeText(this@AppDataBrowserActivity, "対応する外部アプリが見つかりません。内部ビューアで開きます", Toast.LENGTH_SHORT).show()
+                            openBinaryViewer(entry.path, runAsPackage)
+                        }
+                    } catch (e: Exception) {
+                        Toast.makeText(this@AppDataBrowserActivity, "開けませんでした: ${e.message}", Toast.LENGTH_LONG).show()
+                        openBinaryViewer(entry.path, runAsPackage)
+                    }
+                }.onFailure {
+                    Toast.makeText(this@AppDataBrowserActivity, "読み込み失敗: ${it.message}", Toast.LENGTH_LONG).show()
+                }
             }
         }
     }
