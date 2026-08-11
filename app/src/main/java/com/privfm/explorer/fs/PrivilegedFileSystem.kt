@@ -74,6 +74,19 @@ class PrivilegedFileSystem(
         )
     }
 
+    /** ファイル種別判定などのため、先頭バイトのみを効率的に読み取る */
+    fun peekFile(path: String, maxBytes: Int = 4096): Result<ByteArray> {
+        val result = shell.exec(wrap("head -c $maxBytes \"$path\" | base64"))
+        if (!result.isSuccess) {
+            return Result.failure(IllegalStateException(result.stderr.ifBlank { "読み込みに失敗しました" }))
+        }
+        return try {
+            Result.success(Base64.decode(result.stdout.replace("\n", ""), Base64.DEFAULT))
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     /** テキスト/バイナリ問わずファイル内容を読み込む(Base64経由で安全に転送) */
     fun readFile(path: String): Result<ByteArray> {
         val result = shell.exec(wrap("base64 \"$path\""))

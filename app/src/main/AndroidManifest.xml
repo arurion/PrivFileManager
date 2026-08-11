@@ -13,6 +13,17 @@
     <!-- Shizuku (Sui含む) が内部的に利用する権限 -->
     <uses-permission android:name="moe.shizuku.manager.permission.API_V23" />
 
+    <!--
+      debuggableアプリの列挙に必要。Android 11+ (targetSdk 30+) では
+      パッケージ可視性フィルタリングにより、この権限なしでは
+      getInstalledApplications() が自アプリ関連パッケージしか返さない。
+      本アプリはPlay Store配布を想定しないサイドロード用ツールのため許容する。
+      (Play Store配布する場合はQUERY_ALL_PACKAGESではなく<queries>での
+      個別宣言に置き換える必要がある)
+    -->
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"
+        tools:ignore="QueryAllPackagesPermission" />
+
     <!-- ネットワーク (GitHub API / clone用) -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
@@ -38,6 +49,10 @@
 
         <activity
             android:name=".ui.TextEditorActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".ui.BinaryViewerActivity"
             android:exported="false" />
 
         <activity

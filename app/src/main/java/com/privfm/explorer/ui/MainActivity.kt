@@ -172,11 +172,26 @@ class MainActivity : AppCompatActivity() {
     private fun onEntryClicked(entry: FileEntry) {
         if (entry.isDirectory) {
             loadDirectory(entry.path)
-        } else {
-            val intent = Intent(this, TextEditorActivity::class.java).apply {
-                putExtra(TextEditorActivity.EXTRA_PATH, entry.path)
+            return
+        }
+        lifecycleScope.launch(Dispatchers.IO) {
+            val fs = PrivilegedFileSystem(ShellManager.current())
+            val kind = com.privfm.explorer.fs.FileTypeDetector.kindByExtension(entry.name)
+            val openAsText = when (kind) {
+                com.privfm.explorer.fs.FileTypeDetector.Kind.TEXT -> true
+                com.privfm.explorer.fs.FileTypeDetector.Kind.BINARY -> false
+                com.privfm.explorer.fs.FileTypeDetector.Kind.UNKNOWN -> {
+                    val peek = fs.peekFile(entry.path, maxBytes = 4096)
+                    peek.map { !com.privfm.explorer.fs.FileTypeDetector.looksLikeBinary(it) }.getOrDefault(true)
+                }
             }
-            startActivity(intent)
+            withContext(Dispatchers.Main) {
+                val target = if (openAsText) TextEditorActivity::class.java else BinaryViewerActivity::class.java
+                val intent = Intent(this@MainActivity, target).apply {
+                    putExtra(TextEditorActivity.EXTRA_PATH, entry.path)
+                }
+                startActivity(intent)
+            }
         }
     }
 

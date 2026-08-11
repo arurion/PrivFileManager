@@ -1,3 +1,26 @@
 <resources>
     <color name="ic_launcher_background">#1B1F27</color>
+
+    <!-- ベース: サックスホワイト (寒色に振り切らない、アッシュがかった上品な水色) -->
+    <color name="bg_base">#EAF5FF</color>
+
+    <!-- 枠(chrome): ヘッダー・ツールバーに使う、色付きガラス風のティント -->
+    <color name="chrome_tint">#2F6FED</color>
+    <color name="chrome_tint_glass">#662F6FED</color>
+    <!-- 枠の上端ハイライト。純白ではなくスモーキーなシルバーグレー -->
+    <color name="chrome_edge_highlight">#4D64748B</color>
+
+    <!-- 本体コンテンツ: 枠と極端なコントラストにならない範囲で白に近づける(彩度を落とす) -->
+    <color name="content_surface">#F7FBFF</color>
+
+    <!-- テキスト: 常に高コントラストな濃色を使う(グレーの読みにくさを避ける) -->
+    <color name="text_primary">#1B2430</color>
+    <color name="text_secondary">#4B5768</color>
+    <color name="text_on_chrome">#FFFFFFFF</color>
+
+    <!-- 選択中 / ホバー(押下)で色をわずかに変える -->
+    <color name="state_selected">#1A2F6FED</color>
+    <color name="state_pressed">#332F6FED</color>
+
+    <color name="danger">#D14343</color>
 </resources>

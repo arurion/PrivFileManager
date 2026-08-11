@@ -3,6 +3,19 @@ plugins {
     id("org.jetbrains.kotlin.android")
 }
 
+// GitHub Actions側でSecretsを環境変数として渡す想定。
+//  KEYSTORE_PATH               : base64デコード済みのkeystoreファイルパス(workflow側で用意)
+//  KEYSTORE_PASSWORD_20260801  : keystore/キーのパスワード(共通)
+//  KEY_ALIAS_20260801          : 鍵のエイリアス
+// いずれか欠けている場合は署名なし(releaseもデバッグ用途扱い)でビルドされる。
+val ciKeystorePath = System.getenv("KEYSTORE_PATH")
+val ciKeystorePassword = System.getenv("KEYSTORE_PASSWORD_20260801")
+val ciKeyAlias = System.getenv("KEY_ALIAS_20260801")
+val hasCiSigningConfig = !ciKeystorePath.isNullOrBlank() &&
+    !ciKeystorePassword.isNullOrBlank() &&
+    !ciKeyAlias.isNullOrBlank() &&
+    file(ciKeystorePath).exists()
+
 android {
     namespace = "com.privfm.explorer"
     compileSdk = 34
@@ -15,10 +28,24 @@ android {
         versionName = "1.0.0"
     }
 
+    signingConfigs {
+        if (hasCiSigningConfig) {
+            create("release") {
+                storeFile = file(ciKeystorePath!!)
+                storePassword = ciKeystorePassword
+                keyAlias = ciKeyAlias
+                keyPassword = ciKeystorePassword
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            if (hasCiSigningConfig) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
         debug {
             // ★このアプリ自体もdebuggable=trueでビルドされる

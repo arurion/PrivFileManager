@@ -1,3 +1,14 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
-    <style name="Theme.PrivFileManager" parent="Theme.Material3.DayNight.NoActionBar" />
+    <style name="Theme.PrivFileManager" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:statusBarColor">@color/chrome_tint</item>
+        <item name="android:windowBackground">@color/bg_base</item>
+        <item name="colorPrimary">@color/chrome_tint</item>
+        <item name="colorOnPrimary">@color/text_on_chrome</item>
+        <item name="colorSurface">@color/content_surface</item>
+        <item name="colorOnSurface">@color/text_primary</item>
+        <item name="colorControlHighlight">@color/state_pressed</item>
+        <!-- 影・境界線を多用しない: ツールバーのelevationは最小限に -->
+        <item name="elevationOverlayEnabled">false</item>
+    </style>
 </resources>

@@ -3,27 +3,44 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical">
+    android:orientation="vertical"
+    android:background="@color/bg_base">
 
-    <com.google.android.material.appbar.MaterialToolbar
-        android:id="@+id/appDataToolbar"
-        android:layout_width="match_parent"
-        android:layout_height="?attr/actionBarSize"
-        android:background="?attr/colorPrimary"
-        android:titleTextColor="@android:color/white"
-        app:title="@string/menu_app_data" />
-
-    <TextView
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:padding="8dp"
-        android:textSize="12sp"
-        android:text="debuggable=true のアプリのみ一覧表示されます (run-as対象)" />
+        android:orientation="vertical"
+        android:background="@color/chrome_tint">
+
+        <com.google.android.material.appbar.MaterialToolbar
+            android:id="@+id/appDataToolbar"
+            android:layout_width="match_parent"
+            android:layout_height="?attr/actionBarSize"
+            android:background="@android:color/transparent"
+            android:titleTextColor="@color/text_on_chrome"
+            app:title="@string/menu_app_data" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingHorizontal="16dp"
+            android:paddingBottom="10dp"
+            android:textSize="12sp"
+            android:textColor="@color/text_on_chrome"
+            android:alpha="0.85"
+            android:text="debuggable=true のアプリのみ一覧表示されます (run-as対象)" />
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="@color/chrome_edge_highlight" />
+    </LinearLayout>
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/appListView"
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_weight="1" />
+        android:layout_weight="1"
+        android:background="@color/content_surface" />
 
 </LinearLayout>

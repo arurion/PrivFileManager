@@ -3,39 +3,61 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical">
+    android:orientation="vertical"
+    android:background="@color/bg_base">
 
-    <com.google.android.material.appbar.MaterialToolbar
-        android:id="@+id/toolbar"
-        android:layout_width="match_parent"
-        android:layout_height="?attr/actionBarSize"
-        android:background="?attr/colorPrimary"
-        android:titleTextColor="@android:color/white"
-        app:title="@string/app_name" />
-
-    <TextView
-        android:id="@+id/statusBar"
+    <!-- ヘッダー(chrome): ツールバー + ステータス + パスを1枚のガラス質感パネルにまとめる。
+         各行を個別の灰色ボックスに分割しない(anti-Bento)。境界線ではなく
+         下端の淡いエッジハイライトのみで本体コンテンツと区切る。 -->
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:padding="8dp"
-        android:textSize="12sp"
-        android:background="#EEEEEE"
-        android:text="モード: 通常権限 / パス: /" />
+        android:orientation="vertical"
+        android:background="@color/chrome_tint">
 
-    <TextView
-        android:id="@+id/currentPathView"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:padding="4dp"
-        android:textSize="11sp"
-        android:textStyle="italic"
-        android:text="/" />
+        <com.google.android.material.appbar.MaterialToolbar
+            android:id="@+id/toolbar"
+            android:layout_width="match_parent"
+            android:layout_height="?attr/actionBarSize"
+            android:background="@android:color/transparent"
+            android:titleTextColor="@color/text_on_chrome"
+            app:title="@string/app_name" />
+
+        <TextView
+            android:id="@+id/statusBar"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingHorizontal="16dp"
+            android:paddingBottom="4dp"
+            android:textSize="12sp"
+            android:textColor="@color/text_on_chrome"
+            android:alpha="0.85"
+            android:text="モード: 通常権限" />
+
+        <TextView
+            android:id="@+id/currentPathView"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingHorizontal="16dp"
+            android:paddingBottom="10dp"
+            android:textSize="12sp"
+            android:fontFamily="monospace"
+            android:textColor="@color/text_on_chrome"
+            android:text="/" />
+
+        <!-- 純白ではないスモーキーなエッジハイライト(境界線の代わり) -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="@color/chrome_edge_highlight" />
+
+    </LinearLayout>
 
     <ProgressBar
         android:id="@+id/loadingIndicator"
         style="?android:attr/progressBarStyleHorizontal"
         android:layout_width="match_parent"
-        android:layout_height="4dp"
+        android:layout_height="3dp"
         android:indeterminate="true"
         android:visibility="gone" />
 
@@ -43,6 +65,7 @@
         android:id="@+id/fileListView"
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_weight="1" />
+        android:layout_weight="1"
+        android:background="@color/content_surface" />
 
 </LinearLayout>

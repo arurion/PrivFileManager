@@ -11,4 +11,6 @@
     <string name="action_clone">読み込む</string>
     <string name="action_save">保存</string>
     <string name="up_directory">.. (上へ)</string>
+    <string name="action_force_open_text">テキストとして強制的に開く(非推奨)</string>
+    <string name="warn_binary_file">バイナリファイルの可能性があります。破損を防ぐためhexビューで表示しています。</string>
 </resources>

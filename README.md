@@ -57,8 +57,19 @@ ui/
 ## ビルド方法 (GitHub Actions)
 
 `.github/workflows/build.yml` により、`main` ブランチへのpush / PR / 手動実行 (`workflow_dispatch`) で
-自動的に debug / release(unsigned) APKがビルドされ、Actionsのartifactとしてアップロードされます。
+自動的に debug / release APKがビルドされ、Actionsのartifactとしてアップロードされます。
 Gradle Wrapperバイナリはリポジトリに含めず、`gradle/actions/setup-gradle` で最新のGradleを都度取得します。
+
+### 署名ビルド
+
+リポジトリの Settings > Secrets and variables > Actions に以下を登録すると、
+release APKが自動的に署名されます(未登録の場合は unsigned のままビルドされます)。
+
+| Secret名 | 内容 |
+|---|---|
+| `ANDROID_KEYSTORE_20260801_BASE64` | keystoreファイルを `base64 -w0 your.keystore` した文字列 |
+| `KEYSTORE_PASSWORD_20260801` | keystore/鍵パスワード(共通) |
+| `KEY_ALIAS_20260801` | 鍵のエイリアス |
 
 ローカルでビルドする場合:
 

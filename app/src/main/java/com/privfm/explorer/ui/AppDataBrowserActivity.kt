@@ -10,6 +10,7 @@ import com.privfm.explorer.databinding.ActivityAppDataBinding
 import com.privfm.explorer.fs.DebuggableApp
 import com.privfm.explorer.fs.DebuggableAppHelper
 import com.privfm.explorer.fs.FileEntry
+import com.privfm.explorer.fs.FileTypeDetector
 import com.privfm.explorer.fs.PrivilegedFileSystem
 import com.privfm.explorer.shell.ShellManager
 import kotlinx.coroutines.Dispatchers
@@ -90,12 +91,27 @@ class AppDataBrowserActivity : AppCompatActivity() {
         val app = selectedApp ?: return
         if (entry.isDirectory) {
             loadAppDirectory(entry.path)
-        } else {
-            val intent = Intent(this, TextEditorActivity::class.java).apply {
-                putExtra(TextEditorActivity.EXTRA_PATH, entry.path)
-                putExtra(TextEditorActivity.EXTRA_RUN_AS_PACKAGE, app.packageName)
+            return
+        }
+        lifecycleScope.launch(Dispatchers.IO) {
+            val fs = PrivilegedFileSystem(ShellManager.current(), app.packageName)
+            val kind = FileTypeDetector.kindByExtension(entry.name)
+            val openAsText = when (kind) {
+                FileTypeDetector.Kind.TEXT -> true
+                FileTypeDetector.Kind.BINARY -> false
+                FileTypeDetector.Kind.UNKNOWN -> {
+                    val peek = fs.peekFile(entry.path, maxBytes = 4096)
+                    peek.map { !FileTypeDetector.looksLikeBinary(it) }.getOrDefault(true)
+                }
             }
-            startActivity(intent)
+            withContext(Dispatchers.Main) {
+                val target = if (openAsText) TextEditorActivity::class.java else BinaryViewerActivity::class.java
+                val intent = Intent(this@AppDataBrowserActivity, target).apply {
+                    putExtra(TextEditorActivity.EXTRA_PATH, entry.path)
+                    putExtra(TextEditorActivity.EXTRA_RUN_AS_PACKAGE, app.packageName)
+                }
+                startActivity(intent)
+            }
         }
     }
 

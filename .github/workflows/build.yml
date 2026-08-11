@@ -16,7 +16,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up JDK 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
@@ -30,17 +30,43 @@ jobs:
       - name: Build debug APK
         run: gradle assembleDebug --no-daemon
 
-      - name: Build release APK (unsigned)
-        run: gradle assembleRelease --no-daemon
-
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
           name: PrivFileManager-debug
           path: app/build/outputs/apk/debug/*.apk
 
+      # 署名用Secretsが設定されている場合のみkeystoreをデコードして展開する。
+      # (Settings > Secrets and variables > Actions に以下を登録済みの前提)
+      #   ANDROID_KEYSTORE_20260801_BASE64 : keystoreファイルをbase64化したもの
+      #   KEYSTORE_PASSWORD_20260801       : keystore/鍵パスワード(共通)
+      #   KEY_ALIAS_20260801               : 鍵のエイリアス
+      - name: Decode signing keystore
+        if: ${{ secrets.ANDROID_KEYSTORE_20260801_BASE64 != '' }}
+        env:
+          ANDROID_KEYSTORE_20260801_BASE64: ${{ secrets.ANDROID_KEYSTORE_20260801_BASE64 }}
+        run: |
+          echo "$ANDROID_KEYSTORE_20260801_BASE64" | base64 -d > "$GITHUB_WORKSPACE/release.keystore"
+
+      - name: Build release APK (signed)
+        if: ${{ secrets.ANDROID_KEYSTORE_20260801_BASE64 != '' }}
+        env:
+          KEYSTORE_PATH: ${{ github.workspace }}/release.keystore
+          KEYSTORE_PASSWORD_20260801: ${{ secrets.KEYSTORE_PASSWORD_20260801 }}
+          KEY_ALIAS_20260801: ${{ secrets.KEY_ALIAS_20260801 }}
+        run: gradle assembleRelease --no-daemon
+
+      - name: Build release APK (unsigned fallback)
+        if: ${{ secrets.ANDROID_KEYSTORE_20260801_BASE64 == '' }}
+        run: gradle assembleRelease --no-daemon
+
       - name: Upload release APK
         uses: actions/upload-artifact@v4
         with:
-          name: PrivFileManager-release-unsigned
+          name: PrivFileManager-release
           path: app/build/outputs/apk/release/*.apk
+
+      # keystoreファイルをrunner上に残さない
+      - name: Clean up keystore
+        if: always()
+        run: rm -f "$GITHUB_WORKSPACE/release.keystore"

@@ -2,19 +2,26 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical">
+    android:orientation="vertical"
+    android:background="@color/bg_base">
 
     <com.google.android.material.appbar.MaterialToolbar
         android:id="@+id/editorToolbar"
         android:layout_width="match_parent"
         android:layout_height="?attr/actionBarSize"
-        android:background="?attr/colorPrimary"
-        android:titleTextColor="@android:color/white" />
+        android:background="@color/chrome_tint"
+        android:titleTextColor="@color/text_on_chrome" />
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="@color/chrome_edge_highlight" />
 
     <ScrollView
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_weight="1">
+        android:layout_weight="1"
+        android:background="@color/content_surface">
 
         <EditText
             android:id="@+id/editorText"
@@ -23,7 +30,8 @@
             android:gravity="top|start"
             android:inputType="textMultiLine|textNoSuggestions"
             android:typeface="monospace"
-            android:padding="12dp"
+            android:textColor="@color/text_primary"
+            android:padding="16dp"
             android:background="@android:color/transparent" />
     </ScrollView>
 
