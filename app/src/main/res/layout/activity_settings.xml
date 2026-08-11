@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="16dp">
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="使用するシェルエンジン"
+        android:textStyle="bold"
+        android:layout_marginBottom="8dp" />
+
+    <RadioGroup
+        android:id="@+id/modeRadioGroup"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+
+        <RadioButton
+            android:id="@+id/modeAuto"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="自動 (Shizuku優先 &gt; Root &gt; 通常)"
+            android:checked="true" />
+
+        <RadioButton
+            android:id="@+id/modeShizuku"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Shizukuを強制使用" />
+
+        <RadioButton
+            android:id="@+id/modeRoot"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Rootを強制使用" />
+
+        <RadioButton
+            android:id="@+id/modeNormal"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="通常権限のみ" />
+
+    </RadioGroup>
+
+</LinearLayout>
