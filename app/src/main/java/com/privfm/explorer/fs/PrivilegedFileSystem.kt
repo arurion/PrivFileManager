@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 package com.privfm.explorer.fs
 
 import android.util.Base64
@@ -126,6 +127,12 @@ class PrivilegedFileSystem(
         val result = shell.exec(wrap("mkdir -p \"$path\""))
         return if (result.isSuccess) Result.success(Unit)
         else Result.failure(IllegalStateException(result.stderr.ifBlank { "ディレクトリ作成に失敗しました" }))
+    }
+
+    fun createEmptyFile(path: String): Result<Unit> {
+        val result = shell.exec(wrap("touch \"$path\""))
+        return if (result.isSuccess) Result.success(Unit)
+        else Result.failure(IllegalStateException(result.stderr.ifBlank { "ファイル作成に失敗しました" }))
     }
 
     fun rename(oldPath: String, newPath: String): Result<Unit> {

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 package com.privfm.explorer.fs
 
 import java.util.Locale

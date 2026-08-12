@@ -60,6 +60,19 @@ ui/
 自動的に debug / release APKがビルドされ、Actionsのartifactとしてアップロードされます。
 Gradle Wrapperバイナリはリポジトリに含めず、`gradle/actions/setup-gradle` で最新のGradleを都度取得します。
 
+### Releaseへの自動公開
+
+以下のいずれかの方法で、ビルドしたAPKが自動的にGitHub Releaseへ添付されます。
+
+1. **タグをpushする**(推奨): `git tag v1.0.0 && git push origin v1.0.0`
+   → `v1.0.0` という名前でReleaseが自動作成され、`PrivFileManager-debug.apk` /
+   `PrivFileManager-release.apk` が添付されます。
+2. **GitHub UIでReleaseを作成する**: 「Draft a new release」から作成すると、
+   同じワークフローが走ってビルド済みAPKが追加されます。
+
+通常のブランチpush(main)やPull Requestではこのステップはスキップされ、
+今まで通りActionsのartifactとしてのみアップロードされます(Releaseは汚れません)。
+
 ### 署名ビルド
 
 リポジトリの Settings > Secrets and variables > Actions に以下を登録すると、
@@ -85,3 +98,11 @@ gradle assembleDebug
 - Root/Shizuku経由の操作はシステムやアプリの動作を破壊しうるため、自己責任で使用してください。
 - 本プロジェクトは開発・デバッグ・学習目的のツールとして提供されます。第三者の端末・データに対して
   無断で使用しないでください。
+
+## ライセンス
+
+**GPL-3.0-or-later** です。全文は同梱の `LICENSE` を参照してください。
+
+一部のUI/UX設計は、AOSP DocumentsUI (Apache-2.0) や Amaze File Manager (GPL-3.0-or-later) の
+一般的な機能構成を参考にしています。詳細は `NOTICE.md` を参照してください。
+ソースコードの逐語コピーは行っていません。

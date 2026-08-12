@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 package com.privfm.explorer.util
 
 import android.content.Context
@@ -24,21 +25,32 @@ object ExternalOpener {
         return MimeTypeMap.getSingleton().getMimeTypeFromExtension(ext) ?: "*/*"
     }
 
-    /** バイト列をアプリキャッシュへ書き出し、外部アプリと共有可能なcontent:// URIを返す */
-    fun cacheAndGetUri(context: Context, bytes: ByteArray, fileName: String): Uri {
+    /** バイト列をアプリキャッシュへ書き出し、そのFileオブジェクトを返す(書き戻し検知用にmtimeを見るため) */
+    fun cacheFile(context: Context, bytes: ByteArray, fileName: String): File {
         val dir = File(context.cacheDir, "open_with").apply { mkdirs() }
-        // 同名ファイルの衝突を避けるため都度クリアしてから書き込む
         dir.listFiles()?.forEach { it.delete() }
         val target = File(dir, fileName)
         target.writeBytes(bytes)
-        return FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", target)
+        return target
     }
 
-    /** システムの「開くアプリを選択」チューザーへ渡すIntentを組み立てる */
+    fun uriForCacheFile(context: Context, file: File): Uri =
+        FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+
+    /** バイト列をアプリキャッシュへ書き出し、外部アプリと共有可能なcontent:// URIを返す */
+    fun cacheAndGetUri(context: Context, bytes: ByteArray, fileName: String): Uri =
+        uriForCacheFile(context, cacheFile(context, bytes, fileName))
+
+    /**
+     * システムの「開くアプリを選択」チューザーへ渡すIntentを組み立てる。
+     * 編集して保存し直せるよう、読み取りだけでなく書き込み権限も付与しておく
+     * (対応アプリがContentResolver経由で書き戻せば、キャッシュ側ファイルが更新される)。
+     */
     fun buildChooserIntent(context: Context, uri: Uri, mimeType: String, title: String): Intent {
         val viewIntent = Intent(Intent.ACTION_VIEW).apply {
             setDataAndType(uri, mimeType)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
         }
         return Intent.createChooser(viewIntent, title)
     }
