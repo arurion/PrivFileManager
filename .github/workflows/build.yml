@@ -3,9 +3,15 @@ name: Build APK
 on:
   push:
     branches: [ "main" ]
+    tags: [ "v*.*.*" ]
   pull_request:
     branches: [ "main" ]
   workflow_dispatch:
+  release:
+    types: [ created ]
+
+permissions:
+  contents: write   # Releaseへのアセットアップロードに必要
 
 jobs:
   build:
@@ -30,7 +36,7 @@ jobs:
       - name: Build debug APK
         run: gradle assembleDebug --no-daemon
 
-      - name: Upload debug APK
+      - name: Upload debug APK (artifact)
         uses: actions/upload-artifact@v4
         with:
           name: PrivFileManager-debug
@@ -68,7 +74,7 @@ jobs:
         if: steps.check_signing.outputs.has_keystore == 'false'
         run: gradle assembleRelease --no-daemon
 
-      - name: Upload release APK
+      - name: Upload release APK (artifact)
         uses: actions/upload-artifact@v4
         with:
           name: PrivFileManager-release
@@ -78,3 +84,33 @@ jobs:
       - name: Clean up keystore
         if: always()
         run: rm -f "$GITHUB_WORKSPACE/release.keystore"
+
+      # ---- ここからRelease連携 ----
+      # 以下のいずれかの場合にのみ実行される:
+      #   1. "v1.0.0" のようなタグをpushしたとき(タグ名からリリースを自動作成)
+      #   2. GitHub UI/APIで Release を作成したとき (release: created)
+      - name: Check if this run should publish to a Release
+        id: check_release
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/v* ]] || [ "${{ github.event_name }}" = "release" ]; then
+            echo "should_publish=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "should_publish=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Rename APKs for release (avoid name collisions)
+        if: steps.check_release.outputs.should_publish == 'true'
+        run: |
+          mkdir -p release_assets
+          cp app/build/outputs/apk/debug/*.apk   "release_assets/PrivFileManager-debug.apk"   || true
+          cp app/build/outputs/apk/release/*.apk "release_assets/PrivFileManager-release.apk" || true
+
+      - name: Publish APKs to GitHub Release
+        if: steps.check_release.outputs.should_publish == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release_assets/*.apk
+          # release イベント起点なら既存のReleaseに追加、tag pushならこのタグ名でReleaseを新規作成
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

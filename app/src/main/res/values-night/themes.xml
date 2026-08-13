@@ -1,0 +1,17 @@
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <style name="Theme.PrivFileManager" parent="Theme.Material3.DayNight.NoActionBar">
+        <!-- ダークモードでは背景・ツールバーとも暗色になるため、ステータスバーの
+             アイコンは明色(false=システムのダークモードアイコン)にする。
+             ここを常にtrueにしていたことが「システムUI呼び出し時に配色が
+             おかしくなる」バグの原因だった。 -->
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:statusBarColor">@color/chrome_tint</item>
+        <item name="android:windowBackground">@color/bg_base</item>
+        <item name="colorPrimary">@color/chrome_tint</item>
+        <item name="colorOnPrimary">@color/text_on_chrome</item>
+        <item name="colorSurface">@color/content_surface</item>
+        <item name="colorOnSurface">@color/text_primary</item>
+        <item name="colorControlHighlight">@color/state_pressed</item>
+        <item name="elevationOverlayEnabled">false</item>
+    </style>
+</resources>

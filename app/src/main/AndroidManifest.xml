@@ -28,6 +28,14 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
+    <!-- APKファイルを直接インストールできるようにする -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+
+    <!-- 圧縮/展開などの時間のかかる処理をフォアグラウンドサービス+通知で実行するため -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+
     <application
         android:name=".PrivFmApplication"
         android:allowBackup="false"
@@ -39,8 +47,7 @@
 
         <activity
             android:name=".ui.MainActivity"
-            android:exported="true"
-            android:launchMode="singleTask">
+            android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -66,6 +73,12 @@
         <activity
             android:name=".ui.SettingsActivity"
             android:exported="false" />
+
+        <!-- 圧縮/展開などの長時間処理をバックグラウンドでも継続させるためのフォアグラウンドサービス -->
+        <service
+            android:name=".service.ArchiveService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
 
         <!-- Shizuku公式ガイド必須項目: ShizukuProviderの明示宣言 -->
         <provider

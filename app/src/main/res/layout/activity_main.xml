@@ -6,7 +6,7 @@
     android:orientation="vertical"
     android:background="@color/bg_base">
 
-    <!-- ヘッダー(chrome): ツールバー + ステータス + パスを1枚のガラス質感パネルにまとめる。
+    <!-- ヘッダー(chrome): ツールバー + ステータス + パンくずナビ を1枚のガラス質感パネルにまとめる。
          各行を個別の灰色ボックスに分割しない(anti-Bento)。境界線ではなく
          下端の淡いエッジハイライトのみで本体コンテンツと区切る。 -->
     <LinearLayout
@@ -34,18 +34,21 @@
             android:alpha="0.85"
             android:text="モード: 通常権限" />
 
-        <TextView
-            android:id="@+id/currentPathView"
+        <!-- パンくずナビ(タップで任意階層へ直接移動できる) -->
+        <HorizontalScrollView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:paddingHorizontal="16dp"
-            android:paddingBottom="10dp"
-            android:textSize="12sp"
-            android:fontFamily="monospace"
-            android:textColor="@color/text_on_chrome"
-            android:text="/" />
+            android:scrollbars="none">
 
-        <!-- 純白ではないスモーキーなエッジハイライト(境界線の代わり) -->
+            <LinearLayout
+                android:id="@+id/breadcrumbContainer"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:paddingHorizontal="12dp"
+                android:paddingBottom="10dp" />
+        </HorizontalScrollView>
+
         <View
             android:layout_width="match_parent"
             android:layout_height="1dp"

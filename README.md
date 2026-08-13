@@ -1,69 +1,87 @@
 # PrivFileManager
 
-Shizuku / Root / 通常権限を切り替えて動作するAndroid向けファイルマネージャーです。
-`android:debuggable="true"` の対象アプリに対しては `run-as` 経由で `/data/data/<package>` 以下の
-閲覧・編集も行えます。GitHubリポジトリの clone/pull にも対応しています。
+Shizuku / Root / 通常権限を自動で切り替えて動作する、Android向けの高度なファイルマネージャーです。
+一般的なファイルマネージャーの機能に加えて、開発者向けの特権アクセス(Shizuku・Root・`run-as`)と
+GitHubリポジトリの取り込みに対応しています。
 
-## 主な機能
+## 特徴
 
-- **通常のファイル操作**: 一覧表示 / 閲覧 / 編集 / 削除 / リネーム / コピー / chmod
-- **Shizuku連携**: [Shizuku](https://shizuku.rikka.app/) 経由でADBまたはroot由来のshell権限を使用
-- **Root連携**: `su` が利用可能な端末ではRoot権限での操作にも対応 (Shizuku未使用時のフォールバック)
-- **debuggableアプリのデータ領域アクセス**:
-  `PackageManager` で `FLAG_DEBUGGABLE` が立っているアプリを列挙し、
-  選択したアプリに対して `run-as <package> ...` を発行して `/data/data/<package>` を操作します。
-  これはAndroid OS自身が提供する開発者向け機能で、**debuggable=true のアプリにのみ**動作します
-  (Android Studioのデバッガが使うのと同じ仕組みです)。
-- **GitHubプロジェクトの読み込み**: JGit (純Java実装のgit) を使い、ネイティブgitバイナリなしで
-  リポジトリをclone/pullし、そのままアプリ内で閲覧・編集できます。private repoの場合は
-  Personal Access Tokenを入力してください。
+- **ファイル操作一式**: 一覧表示・複数選択・コピー/切り取り/貼り付け・削除・リネーム・新規作成・
+  chmod・並び替え(名前/サイズ/種類)・検索・パンくずナビゲーション
+- **Shizuku連携**: [Shizuku](https://shizuku.rikka.app/) を使い、rootなしでADB相当のshell権限を利用
+- **Root連携**: root化端末では `su` 経由でも動作(Shizuku未使用時のフォールバック)
+- **debuggableアプリのデータ領域へのアクセス**: `android:debuggable="true"` の対象アプリに対して、
+  `run-as` 経由で `/data/data/<package>` 以下を閲覧・編集できます(Android Studioのデバッガが
+  使うのと同じ、OS標準の仕組みです)
+- **外部アプリとの連携**: テキスト以外のファイルはAndroid標準の「開くアプリを選択」に委譲し、
+  外部アプリで編集した内容を検知して元の場所へ書き戻せます
+- **GitHubリポジトリの取り込み**: JGit(純Java実装)でclone/pullし、そのまま閲覧・編集できます
+  (private repoはPersonal Access Token対応)
+- **圧縮/展開**: 複数選択したファイル/フォルダをZIPに圧縮、ZIPファイルをその場で展開
+  (バックグラウンドのフォアグラウンドサービス+通知で実行され、アプリを閉じても継続します)
+- **debuggableアプリのブラウズも機能フル対応**: アプリのデータ領域を開くと、通常のストレージ
+  ブラウズと全く同じ画面(複数選択・コピー/切り取り/貼り付け・圧縮/展開・検索・並び替え)が
+  そのまま使えます
+- **ダークモード対応**: システムのダーク/ライト設定に応じて配色を自動切り替え
 
-## アーキテクチャ
+## スクリーンショット
 
-```
-shell/
-  ShellExecutor     .. 実行エンジンの共通インターフェース
-  ShizukuShell      .. Shizuku.newProcess (reflection) 経由でshell UIDのプロセスを実行
-  RootShell         .. su -c 経由でroot権限のプロセスを実行
-  NormalShell       .. アプリ自身のUIDでプロセスを実行
-  ShellManager      .. AUTO/SHIZUKU/ROOT/NORMAL の優先順位・切り替えを管理
+_準備中_
 
-fs/
-  PrivilegedFileSystem .. ls/cat/write/rm/mv/cp/chmod を上記シェル経由で実行
-                           (Base64エンコードでバイナリ安全に転送)
-  DebuggableAppHelper   .. debuggable=true のアプリ一覧をPackageManagerから取得
+## 必要要件
 
-git/
-  GitHubRepoLoader  .. JGitによるclone/pull
+- Android 8.0 (API 26) 以降
+- 特権機能を使う場合: [Shizuku](https://shizuku.rikka.app/) アプリ、またはroot化済み端末
+  (どちらも無くても、通常権限でのファイル閲覧・編集は可能です)
 
-ui/
-  MainActivity            .. メインのファイルブラウザ
-  AppDataBrowserActivity  .. debuggableアプリのデータ領域ブラウザ
-  TextEditorActivity      .. テキストエディタ
-  GitCloneActivity        .. GitHubリポジトリ読み込み画面
-  SettingsActivity        .. シェルエンジンの手動選択
-```
+## インストール
+
+[Releases](../../releases) から最新の `PrivFileManager-release.apk` をダウンロードし、
+端末にインストールしてください(提供元不明のアプリのインストールを許可する必要があります)。
 
 ## 使い方
 
-1. 端末に [Shizuku](https://shizuku.rikka.app/) をインストールし、ADB or Root経由で起動しておく
-   (Wireless debugging / `adb shell sh /sdcard/Android/data/moe.shizuku.privileged.api/start.sh` など)。
-2. 本アプリを起動し、メニューから「Shizuku権限を要求」をタップして許可する。
-3. Shizukuが無い/使わない場合、Root化端末であれば自動的にRootシェルにフォールバックします。
-4. 「debuggableアプリのデータを開く」から対象アプリを選ぶと `/data/data/<package>` を閲覧できます
-   (対象アプリが `debuggable=false` の場合、OSの制約により `run-as` は失敗します)。
-5. 「GitHubプロジェクトを読み込む」からリポジトリURLを入力してclone。
+1. アプリを起動し、必要に応じて権限を許可する
+   - **Shizukuを使う場合**: 事前にShizukuアプリを起動しておき、本アプリのメニューから
+     「Shizuku権限を要求」をタップして許可する
+   - **Rootを使う場合**: root化済み端末であれば、メニューの「Root状態を確認」で自動検出される
+   - **どちらも使わない場合**: 初回起動時に案内される「全ファイルアクセス」の許可のみでOK
+2. ファイル一覧をタップして移動、長押しで開き方の選択やリネーム・削除などの操作
+3. ツールバーの「複数選択モード」でチェックボックスが表示され、まとめてコピー/切り取り/削除が可能
+4. debuggableなアプリのデータを見る場合は、メニューの「debuggableアプリのデータを開く」から対象アプリを選択
+5. GitHubのリポジトリを取り込む場合は、メニューの「GitHubプロジェクトを読み込む」からURLを入力
 
-## ビルド方法 (GitHub Actions)
+## 権限・プライバシーについて
+
+- `QUERY_ALL_PACKAGES` は、端末にインストールされているdebuggableなアプリを一覧表示するために使用します
+- `MANAGE_EXTERNAL_STORAGE` は、Shizuku/Rootを使わない場合の通常ストレージアクセスに使用します
+- Shizuku/Root経由の操作は、対象アプリ・システムに対して強い権限で実行されます。
+  信頼できる用途・対象にのみ使用してください
+- 本アプリは通信を外部サーバーへ送信しません(GitHubリポジトリの取り込み機能を使った場合を除く)
+
+## 開発者向け: ソースからビルドする
+
+### GitHub Actions (推奨)
 
 `.github/workflows/build.yml` により、`main` ブランチへのpush / PR / 手動実行 (`workflow_dispatch`) で
-自動的に debug / release APKがビルドされ、Actionsのartifactとしてアップロードされます。
-Gradle Wrapperバイナリはリポジトリに含めず、`gradle/actions/setup-gradle` で最新のGradleを都度取得します。
+debug / release APKが自動ビルドされ、Actionsのartifactとしてダウンロードできます。
+Gradle Wrapperのバイナリはリポジトリに含めず、`gradle/actions/setup-gradle` が都度取得します。
 
-### 署名ビルド
+#### Releaseへの自動公開
 
-リポジトリの Settings > Secrets and variables > Actions に以下を登録すると、
-release APKが自動的に署名されます(未登録の場合は unsigned のままビルドされます)。
+タグをpushするか、GitHub UIでReleaseを作成すると、ビルドされたAPKが自動的にそのReleaseへ添付されます。
+
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+通常のブランチpushやPull Requestではこのステップはスキップされ、Releaseページには影響しません。
+
+#### 署名ビルド
+
+リポジトリの Settings > Secrets and variables > Actions に以下を登録すると、release APKが
+自動的に署名されます(未登録の場合はunsignedでビルドされます)。
 
 | Secret名 | 内容 |
 |---|---|
@@ -71,17 +89,38 @@ release APKが自動的に署名されます(未登録の場合は unsigned の�
 | `KEYSTORE_PASSWORD_20260801` | keystore/鍵パスワード(共通) |
 | `KEY_ALIAS_20260801` | 鍵のエイリアス |
 
-ローカルでビルドする場合:
+### ローカルビルド
+
+Android Studioでプロジェクトを開けば、IDEが自動でセットアップします。CLIの場合:
 
 ```bash
 gradle assembleDebug
 ```
-(Android Studioで開いた場合はIDEが自動的にwrapperを生成します)
+
+### プロジェクト構成
+
+```
+shell/   実行エンジン (Shizuku / Root / 通常) の抽象化と切り替え
+fs/      特権シェル経由のファイル操作、debuggableアプリの列挙
+git/     JGitによるGitHubリポジトリのclone/pull
+util/    外部アプリ連携 (FileProvider / 開くアプリを選択)
+ui/      各画面 (ファイルブラウザ / アプリデータブラウザ / エディタ / 設定 など)
+```
 
 ## 注意事項・免責
 
-- `run-as` によるデータアクセスは **debuggable=true のアプリのみ** に対して機能する、Android OS標準の
-  開発者向け機能です。debuggable=false の一般公開アプリのデータへは(root権限がない限り)アクセスできません。
-- Root/Shizuku経由の操作はシステムやアプリの動作を破壊しうるため、自己責任で使用してください。
-- 本プロジェクトは開発・デバッグ・学習目的のツールとして提供されます。第三者の端末・データに対して
-  無断で使用しないでください。
+- `run-as` によるデータアクセスは、Android OSの制約により **`debuggable=true` のアプリにのみ** 機能します
+- Root/Shizuku経由の操作はシステムやアプリの動作に影響を与える可能性があります。自己責任で使用してください
+- 本アプリは開発・デバッグ・学習目的のツールです。第三者の端末やデータに対して無断で使用しないでください
+
+## コントリビュート
+
+Issue・Pull Requestを歓迎します。変更を加える際は、可能であれば動作確認の内容もあわせて記載してください。
+
+## ライセンス
+
+**GPL-3.0-or-later** です。全文は同梱の [`LICENSE`](./LICENSE) を参照してください。
+
+一部のUI/UX設計は、AOSP DocumentsUI (Apache-2.0) や Amaze File Manager (GPL-3.0-or-later) の
+一般的な機能構成を参考にしています。詳細は [`NOTICE.md`](./NOTICE.md) を参照してください。
+ソースコードの逐語コピーは行っていません。
