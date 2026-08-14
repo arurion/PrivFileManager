@@ -10,7 +10,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:background="@color/chrome_tint">
+        android:background="@color/content_surface">
 
         <com.google.android.material.appbar.MaterialToolbar
             android:id="@+id/appDataToolbar"

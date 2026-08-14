@@ -1,24 +1,20 @@
 <resources>
     <color name="ic_launcher_background">#1B1F27</color>
 
-    <!-- ベース: 夜間用のアッシュブラック(純黒にしない) -->
-    <color name="bg_base">#10151C</color>
+    <color name="bg_base">#121417</color>
+    <color name="content_surface">#1B1F24</color>
+    <color name="surface_variant">#2A2F36</color>
 
-    <!-- 枠(chrome): 暗い背景でも視認できるよう、やや明るめのブルーティント -->
-    <color name="chrome_tint">#3F7DFF</color>
-    <color name="chrome_tint_glass">#663F7DFF</color>
-    <color name="chrome_edge_highlight">#4D8B96A8</color>
+    <color name="chrome_tint">#7DA6FF</color>
+    <color name="chrome_tint_glass">#337DA6FF</color>
+    <color name="chrome_edge_highlight">#33FFFFFF</color>
 
-    <!-- 本体コンテンツ: ベースよりわずかに明るいトーンで奥行きを出す -->
-    <color name="content_surface">#171D26</color>
+    <color name="text_primary">#ECEFF3</color>
+    <color name="text_secondary">#A7B0BD</color>
+    <color name="text_on_chrome">#ECEFF3</color>
 
-    <!-- テキスト: 暗背景での高コントラストな明色 -->
-    <color name="text_primary">#EAF2FF</color>
-    <color name="text_secondary">#9FAEC2</color>
-    <color name="text_on_chrome">#FFFFFFFF</color>
+    <color name="state_selected">#267DA6FF</color>
+    <color name="state_pressed">#407DA6FF</color>
 
-    <color name="state_selected">#263F7DFF</color>
-    <color name="state_pressed">#403F7DFF</color>
-
-    <color name="danger">#FF7A7A</color>
+    <color name="danger">#FF8A80</color>
 </resources>
