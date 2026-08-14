@@ -50,11 +50,15 @@ class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
     private lateinit var adapter: FileAdapter
 
-    private var rootPath: String = "/storage/emulated/0"
+    // ランチャーから起動した場合のデフォルトルート。以前は "/storage/emulated/0" に
+    // 固定していたが、「アクセスできる範囲は全て見られるように」という要望に応え、
+    // 実際のファイルシステムルート "/" を起点にする(Shizuku/Rootが無ければ通常権限の
+    // 範囲でしか実際には読めないので、過剰な露出にはならない)。
+    private var rootPath: String = "/"
     private var runAsPackage: String? = null
-    private var rootLabel: String = "ストレージ"
+    private var rootLabel: String = "デバイス (/)"
 
-    private var currentPath: String = "/storage/emulated/0"
+    private var currentPath: String = "/"
     private var currentEntries: List<FileEntry> = emptyList()
     private var searchQuery: String = ""
     private var sortMode: SortMode = SortMode.NAME
@@ -104,7 +108,10 @@ class MainActivity : AppCompatActivity() {
         rootPath = intent.getStringExtra(EXTRA_ROOT_PATH) ?: rootPath
         runAsPackage = intent.getStringExtra(EXTRA_RUN_AS_PACKAGE)
         rootLabel = intent.getStringExtra(EXTRA_TITLE) ?: rootLabel
-        currentPath = rootPath
+        // ルート自体は"/"(全ファイルシステム)のままにしつつ、初期表示は使いやすい
+        // ストレージ領域から始める。EXTRA_START_PATHで明示的に上書き可能。
+        currentPath = intent.getStringExtra(EXTRA_START_PATH)
+            ?: if (runAsPackage == null && rootPath == "/") "/storage/emulated/0" else rootPath
         supportActionBar?.title = intent.getStringExtra(EXTRA_TITLE) ?: getString(R.string.app_name)
 
         Shizuku.addRequestPermissionResultListener(shizukuPermListener)
@@ -223,6 +230,9 @@ class MainActivity : AppCompatActivity() {
             R.id.action_app_data -> { startActivity(Intent(this, AppDataBrowserActivity::class.java)); true }
             R.id.action_settings -> { startActivity(Intent(this, SettingsActivity::class.java)); true }
             R.id.action_sort -> { showSortDialog(); true }
+            R.id.action_quick_access -> { showQuickAccessDialog(); true }
+            R.id.action_go_to_path -> { showGoToPathDialog(); true }
+            R.id.action_jump_foreground_app -> { jumpToForegroundApp(); true }
             R.id.action_new_folder -> { showCreateDialog(isDirectory = true); true }
             R.id.action_new_file -> { showCreateDialog(isDirectory = false); true }
             R.id.action_paste -> { pasteClipboard(); true }
@@ -316,7 +326,113 @@ class MainActivity : AppCompatActivity() {
             .show()
     }
 
-    // ---- 新規作成 ----
+    // ---- クイックアクセス・パス直接指定 ----
+
+    private fun showQuickAccessDialog() {
+        val places = linkedMapOf(
+            "内部ストレージ (/storage/emulated/0)" to "/storage/emulated/0",
+            "Android/data" to "/storage/emulated/0/Android/data",
+            "Download" to "/storage/emulated/0/Download",
+            "デバイスのルート (/)" to "/",
+            "/system" to "/system",
+            "/data" to "/data",
+            "/proc" to "/proc"
+        )
+        MaterialAlertDialogBuilder(this)
+            .setTitle(getString(R.string.action_quick_access))
+            .setItems(places.keys.toTypedArray()) { _, which ->
+                loadDirectory(places.values.toList()[which])
+            }
+            .show()
+    }
+
+    private fun showGoToPathDialog() {
+        val input = android.widget.EditText(this).apply { setText(currentPath) }
+        MaterialAlertDialogBuilder(this)
+            .setTitle(getString(R.string.action_go_to_path))
+            .setView(input)
+            .setPositiveButton("移動") { _, _ ->
+                val path = input.text.toString().trim()
+                if (path.isNotEmpty()) loadDirectory(path)
+            }
+            .setNegativeButton("キャンセル", null)
+            .show()
+    }
+
+    /**
+     * ForegroundAppAccessibilityService が検知した「今表示されているアプリ」の
+     * パッケージ名を使い、そのアプリのデータ領域を(debuggableであれば)新しいブラウザとして開く。
+     */
+    private fun jumpToForegroundApp() {
+        val pkg = com.privfm.explorer.service.ForegroundAppAccessibilityService.lastForegroundPackage
+        if (pkg == null) {
+            MaterialAlertDialogBuilder(this)
+                .setTitle("検知できていません")
+                .setMessage("フォアグラウンドアプリがまだ検知されていません。設定からAccessibilityサービスを有効にしてから、対象アプリを一度表示してください。")
+                .setPositiveButton("設定を開く") { _, _ -> startActivity(Intent(this, SettingsActivity::class.java)) }
+                .setNegativeButton("閉じる", null)
+                .show()
+            return
+        }
+        val apps = com.privfm.explorer.fs.DebuggableAppHelper.listDebuggableApps(this)
+        val app = apps.find { it.packageName == pkg }
+        if (app == null) {
+            Toast.makeText(this, "$pkg はdebuggableではないため、run-as経由のデータアクセスはできません", Toast.LENGTH_LONG).show()
+            return
+        }
+        val intent = Intent(this, MainActivity::class.java).apply {
+            putExtra(EXTRA_ROOT_PATH, app.dataDir)
+            putExtra(EXTRA_RUN_AS_PACKAGE, app.packageName)
+            putExtra(EXTRA_TITLE, app.label)
+        }
+        startActivity(intent)
+    }
+
+    // ---- パーミッション変更(chmod) ----
+
+    private fun showChmodDialog(entry: FileEntry) {
+        val dialogView = layoutInflater.inflate(R.layout.dialog_chmod, null)
+        val checks = listOf(
+            R.id.chkOwnerRead, R.id.chkOwnerWrite, R.id.chkOwnerExec,
+            R.id.chkGroupRead, R.id.chkGroupWrite, R.id.chkGroupExec,
+            R.id.chkOtherRead, R.id.chkOtherWrite, R.id.chkOtherExec
+        ).map { dialogView.findViewById<android.widget.CheckBox>(it) }
+
+        // "drwxr-xr-x" のようなpermissions文字列末尾9文字を反映
+        val perm = entry.permissions.takeLast(9).padStart(9, '-')
+        val flags = perm.map { it != '-' }
+        checks.forEachIndexed { i, cb -> cb.isChecked = flags.getOrElse(i) { false } }
+
+        MaterialAlertDialogBuilder(this)
+            .setTitle(getString(R.string.action_change_permissions))
+            .setView(dialogView)
+            .setPositiveButton("適用") { _, _ ->
+                var mode = 0
+                val bits = intArrayOf(0b100, 0b010, 0b001)
+                for (group in 0 until 3) {
+                    var groupVal = 0
+                    for (b in 0 until 3) {
+                        if (checks[group * 3 + b].isChecked) groupVal = groupVal or bits[b]
+                    }
+                    mode = mode or (groupVal shl ((2 - group) * 3))
+                }
+                val octal = String.format("%03o", mode)
+                lifecycleScope.launch(Dispatchers.IO) {
+                    val fs = PrivilegedFileSystem(ShellManager.current(), runAsPackage)
+                    val result = fs.chmod(entry.path, octal)
+                    withContext(Dispatchers.Main) {
+                        result.onSuccess {
+                            Toast.makeText(this@MainActivity, "権限を $octal に変更しました", Toast.LENGTH_SHORT).show()
+                            loadDirectory(currentPath)
+                        }.onFailure { Toast.makeText(this@MainActivity, "変更失敗: ${it.message}", Toast.LENGTH_LONG).show() }
+                    }
+                }
+            }
+            .setNegativeButton("キャンセル", null)
+            .show()
+    }
+
+
 
     private fun showCreateDialog(isDirectory: Boolean) {
         val input = android.widget.EditText(this)
@@ -572,7 +688,7 @@ class MainActivity : AppCompatActivity() {
         val options = mutableListOf<String>()
         if (!entry.isDirectory) options.add("開き方を選択…")
         if (isZip) options.add(getString(R.string.action_extract))
-        options.addAll(listOf("削除", "リネーム", "権限確認"))
+        options.addAll(listOf("削除", "リネーム", "パーミッションを変更"))
 
         MaterialAlertDialogBuilder(this)
             .setTitle(entry.name)
@@ -589,7 +705,7 @@ class MainActivity : AppCompatActivity() {
                 when (idx) {
                     0 -> confirmDelete(entry)
                     1 -> renameEntry(entry)
-                    2 -> Toast.makeText(this, entry.permissions, Toast.LENGTH_SHORT).show()
+                    2 -> showChmodDialog(entry)
                 }
             }
             .show()
@@ -656,8 +772,9 @@ class MainActivity : AppCompatActivity() {
             super.onBackPressed()
             return
         }
-        val parent = currentPath.substringBeforeLast('/', "")
-        if (parent.length >= rootPath.trimEnd('/').length) {
+        val parent = currentPath.substringBeforeLast('/', "").ifEmpty { "/" }
+        val rootTrimmed = rootPath.trimEnd('/')
+        if (parent == "/" || parent.length >= rootTrimmed.length) {
             loadDirectory(parent)
         } else {
             loadDirectory(rootPath)
@@ -670,5 +787,6 @@ class MainActivity : AppCompatActivity() {
         const val EXTRA_ROOT_PATH = "extra_root_path"
         const val EXTRA_RUN_AS_PACKAGE = "extra_run_as_package"
         const val EXTRA_TITLE = "extra_title"
+        const val EXTRA_START_PATH = "extra_start_path"
     }
 }

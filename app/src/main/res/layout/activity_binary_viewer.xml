@@ -10,7 +10,7 @@
         android:id="@+id/binaryToolbar"
         android:layout_width="match_parent"
         android:layout_height="?attr/actionBarSize"
-        android:background="@color/chrome_tint"
+        android:background="@color/content_surface"
         android:titleTextColor="@color/text_on_chrome" />
 
     <TextView

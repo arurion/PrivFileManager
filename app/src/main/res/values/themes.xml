@@ -1,14 +1,22 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- Dynamic Color(Material You)が使える端末ではApplication側でこのテーマの
+         色ロールが端末の壁紙色に自動上書きされる。ここに定義するのは非対応端末向けの
+         フォールバック。AOSPの標準アプリに近い、surfaceを基調とした落ち着いた配色にする
+         (単色のベタ塗りツールバーではなく、表面色+わずかなアクセントで構成)。 -->
     <style name="Theme.PrivFileManager" parent="Theme.Material3.DayNight.NoActionBar">
         <item name="android:windowLightStatusBar">true</item>
-        <item name="android:statusBarColor">@color/chrome_tint</item>
+        <item name="android:statusBarColor">@color/content_surface</item>
         <item name="android:windowBackground">@color/bg_base</item>
         <item name="colorPrimary">@color/chrome_tint</item>
-        <item name="colorOnPrimary">@color/text_on_chrome</item>
+        <item name="colorOnPrimary">@android:color/white</item>
+        <item name="colorPrimaryContainer">@color/state_selected</item>
+        <item name="colorOnPrimaryContainer">@color/text_primary</item>
+        <item name="colorSecondaryContainer">@color/surface_variant</item>
         <item name="colorSurface">@color/content_surface</item>
         <item name="colorOnSurface">@color/text_primary</item>
+        <item name="colorSurfaceVariant">@color/surface_variant</item>
+        <item name="colorOutline">@color/chrome_edge_highlight</item>
         <item name="colorControlHighlight">@color/state_pressed</item>
-        <!-- 影・境界線を多用しない: ツールバーのelevationは最小限に -->
         <item name="elevationOverlayEnabled">false</item>
     </style>
 </resources>

@@ -26,4 +26,10 @@
     <string name="action_cancel">キャンセル</string>
     <string name="action_compress">圧縮(ZIP)</string>
     <string name="action_extract">展開(ZIP)</string>
+    <string name="action_quick_access">クイックアクセス</string>
+    <string name="action_go_to_path">パスを直接入力</string>
+    <string name="action_change_permissions">パーミッションを変更</string>
+    <string name="action_jump_foreground_app">今表示中のアプリのデータを開く</string>
+    <string name="settings_accessibility_title">フォアグラウンドアプリ検知(Accessibility)</string>
+    <string name="settings_accessibility_desc">今どのアプリが画面に表示されているか(パッケージ名のみ)を検知し、そのアプリのデータへワンタップで移動できるようにします。画面の文字や操作内容は一切取得しません。</string>
 </resources>

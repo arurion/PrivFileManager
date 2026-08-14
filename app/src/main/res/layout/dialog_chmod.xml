@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<GridLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:columnCount="4"
+    android:padding="20dp">
+
+    <View android:layout_width="0dp" android:layout_height="0dp" />
+    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="読み取り" android:layout_columnWeight="1" android:gravity="center" android:textColor="@color/text_secondary" android:textSize="12sp" />
+    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="書き込み" android:layout_columnWeight="1" android:gravity="center" android:textColor="@color/text_secondary" android:textSize="12sp" />
+    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="実行" android:layout_columnWeight="1" android:gravity="center" android:textColor="@color/text_secondary" android:textSize="12sp" />
+
+    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="所有者" android:textColor="@color/text_primary" android:layout_marginTop="8dp" />
+    <CheckBox android:id="@+id/chkOwnerRead" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_gravity="center" android:layout_columnWeight="1" android:layout_marginTop="8dp" />
+    <CheckBox android:id="@+id/chkOwnerWrite" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_gravity="center" android:layout_columnWeight="1" android:layout_marginTop="8dp" />
+    <CheckBox android:id="@+id/chkOwnerExec" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_gravity="center" android:layout_columnWeight="1" android:layout_marginTop="8dp" />
+
+    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="グループ" android:textColor="@color/text_primary" android:layout_marginTop="8dp" />
+    <CheckBox android:id="@+id/chkGroupRead" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_gravity="center" android:layout_columnWeight="1" android:layout_marginTop="8dp" />
+    <CheckBox android:id="@+id/chkGroupWrite" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_gravity="center" android:layout_columnWeight="1" android:layout_marginTop="8dp" />
+    <CheckBox android:id="@+id/chkGroupExec" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_gravity="center" android:layout_columnWeight="1" android:layout_marginTop="8dp" />
+
+    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="その他" android:textColor="@color/text_primary" android:layout_marginTop="8dp" />
+    <CheckBox android:id="@+id/chkOtherRead" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_gravity="center" android:layout_columnWeight="1" android:layout_marginTop="8dp" />
+    <CheckBox android:id="@+id/chkOtherWrite" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_gravity="center" android:layout_columnWeight="1" android:layout_marginTop="8dp" />
+    <CheckBox android:id="@+id/chkOtherExec" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_gravity="center" android:layout_columnWeight="1" android:layout_marginTop="8dp" />
+
+</GridLayout>
