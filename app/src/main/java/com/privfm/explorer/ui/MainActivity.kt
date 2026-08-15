@@ -104,6 +104,11 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
         setSupportActionBar(binding.toolbar)
+        // ツールバー左上に「上のディレクトリへ戻る」矢印を表示する(AOSP DocumentsUIの
+        // Upナビゲーション相当)。呼び出し元アプリへ戻る手段はシステムの戻るジェスチャー/
+        // ボタン(onBackPressed)に委ねる。
+        supportActionBar?.setDisplayHomeAsUpEnabled(true)
+        supportActionBar?.setHomeAsUpIndicator(R.drawable.ic_arrow_back)
 
         rootPath = intent.getStringExtra(EXTRA_ROOT_PATH) ?: rootPath
         runAsPackage = intent.getStringExtra(EXTRA_RUN_AS_PACKAGE)
@@ -226,7 +231,6 @@ class MainActivity : AppCompatActivity() {
                 }
                 true
             }
-            R.id.action_git_clone -> { startActivity(Intent(this, GitCloneActivity::class.java)); true }
             R.id.action_app_data -> { startActivity(Intent(this, AppDataBrowserActivity::class.java)); true }
             R.id.action_settings -> { startActivity(Intent(this, SettingsActivity::class.java)); true }
             R.id.action_sort -> { showSortDialog(); true }
@@ -247,6 +251,7 @@ class MainActivity : AppCompatActivity() {
             R.id.action_delete_selected -> { confirmDeleteSelected(); true }
             R.id.action_compress_selected -> { compressSelected(); true }
             R.id.action_exit_selection -> { setSelectionMode(false); true }
+            android.R.id.home -> { navigateUp(); true }
             else -> super.onOptionsItemSelected(item)
         }
     }
@@ -281,7 +286,30 @@ class MainActivity : AppCompatActivity() {
     private fun applyFilterAndSort() {
         val filtered = if (searchQuery.isBlank()) currentEntries
         else currentEntries.filter { it.name.contains(searchQuery, ignoreCase = true) }
-        adapter.submitList(sortEntries(filtered, sortMode, sortAscending))
+        val sorted = sortEntries(filtered, sortMode, sortAscending)
+        val withParent = buildParentEntry()?.let { listOf(it) + sorted } ?: sorted
+        adapter.submitList(withParent)
+    }
+
+    /**
+     * 現在地がブラウズ範囲のルート([rootPath])でなければ、一覧の先頭に表示する
+     * 「上のディレクトリへ」の疑似エントリを作る。検索中は一覧が絞り込み結果を示す
+     * ものになるため表示しない。
+     */
+    private fun buildParentEntry(): FileEntry? {
+        if (searchQuery.isNotBlank()) return null
+        val parentPath = parentDirectoryPath() ?: return null
+        return FileEntry(
+            name = "..",
+            path = parentPath,
+            isDirectory = true,
+            isSymlink = false,
+            sizeBytes = 0,
+            permissions = "",
+            owner = "",
+            group = "",
+            isParentEntry = true
+        )
     }
 
     /**
@@ -485,6 +513,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun toggleSelection(entry: FileEntry) {
+        if (entry.isParentEntry) return
+        if (entry.isParentEntry) return
         if (!selectionMode) setSelectionMode(true)
         if (selectedPaths.contains(entry.path)) selectedPaths.remove(entry.path) else selectedPaths.add(entry.path)
         supportActionBar?.title = "${selectedPaths.size}件選択中"
@@ -555,6 +585,15 @@ class MainActivity : AppCompatActivity() {
 
     private fun compressSelected() {
         val targets = currentEntries.filter { selectedPaths.contains(it.path) }
+        compressEntries(targets, afterStart = { setSelectionMode(false) })
+    }
+
+    /** 単一ファイル/フォルダの長押しメニューから直接圧縮する */
+    private fun compressSingle(entry: FileEntry) {
+        compressEntries(listOf(entry))
+    }
+
+    private fun compressEntries(targets: List<FileEntry>, afterStart: () -> Unit = {}) {
         if (targets.isEmpty()) return
         val labels = compressibleFormats.map { it.first }.toTypedArray()
         var selectedIndex = 0
@@ -571,7 +610,8 @@ class MainActivity : AppCompatActivity() {
                     ArchiveUtil.Format.TAR_XZ -> ".tar.xz"
                     else -> ".zip"
                 }
-                val input = android.widget.EditText(this).apply { setText("archive$defaultExt") }
+                val defaultName = if (targets.size == 1) targets[0].name.substringBeforeLast('.', targets[0].name) else "archive"
+                val input = android.widget.EditText(this).apply { setText("$defaultName$defaultExt") }
                 MaterialAlertDialogBuilder(this)
                     .setTitle("ファイル名")
                     .setView(input)
@@ -587,7 +627,7 @@ class MainActivity : AppCompatActivity() {
                             putExtra(ArchiveService.EXTRA_REFRESH_PATH, currentPath)
                         }
                         startForegroundServiceCompat(svcIntent)
-                        setSelectionMode(false)
+                        afterStart()
                         Toast.makeText(this, "バックグラウンドで圧縮を開始しました", Toast.LENGTH_SHORT).show()
                     }
                     .setNegativeButton("キャンセル", null)
@@ -628,6 +668,7 @@ class MainActivity : AppCompatActivity() {
     // ---- ファイルを開く ----
 
     private fun onEntryClicked(entry: FileEntry) {
+        if (entry.isParentEntry) { loadDirectory(entry.path); return }
         if (entry.isDirectory) {
             loadDirectory(entry.path)
             return
@@ -738,11 +779,13 @@ class MainActivity : AppCompatActivity() {
     // ---- 長押しメニュー ----
 
     private fun onEntryLongClicked(entry: FileEntry): Boolean {
+        if (entry.isParentEntry) return false
         if (selectionMode) { toggleSelection(entry); return true }
         val isArchive = !entry.isDirectory && ArchiveUtil.detectFormat(entry.name) != null
         val options = mutableListOf<String>()
         if (!entry.isDirectory) options.add("開き方を選択…")
         if (isArchive) options.add(getString(R.string.action_extract))
+        options.add(getString(R.string.action_compress))
         options.addAll(listOf("削除", "リネーム", "パーミッションを変更"))
 
         MaterialAlertDialogBuilder(this)
@@ -758,9 +801,10 @@ class MainActivity : AppCompatActivity() {
                     idx--
                 }
                 when (idx) {
-                    0 -> confirmDelete(entry)
-                    1 -> renameEntry(entry)
-                    2 -> showChmodDialog(entry)
+                    0 -> compressSingle(entry)
+                    1 -> confirmDelete(entry)
+                    2 -> renameEntry(entry)
+                    3 -> showChmodDialog(entry)
                 }
             }
             .show()
@@ -827,13 +871,23 @@ class MainActivity : AppCompatActivity() {
             super.onBackPressed()
             return
         }
+        navigateUp()
+    }
+
+    /** 現在地の1つ上のディレクトリパスを求める(ルート未満には行かない)。ルートなら null */
+    private fun parentDirectoryPath(): String? {
+        if (currentPath.trimEnd('/') == rootPath.trimEnd('/')) return null
         val parent = currentPath.substringBeforeLast('/', "").ifEmpty { "/" }
         val rootTrimmed = rootPath.trimEnd('/')
-        if (parent == "/" || parent.length >= rootTrimmed.length) {
-            loadDirectory(parent)
-        } else {
-            loadDirectory(rootPath)
-        }
+        return if (parent == "/" || parent.length >= rootTrimmed.length) parent else rootPath
+    }
+
+    /**
+     * 現在地の1つ上のディレクトリへ移動する(ツールバー左上のUpボタン、
+     * および一覧先頭の".."行から共通で呼ばれる)。ルート([rootPath])では何もしない。
+     */
+    private fun navigateUp() {
+        parentDirectoryPath()?.let { loadDirectory(it) }
     }
 
     companion object {

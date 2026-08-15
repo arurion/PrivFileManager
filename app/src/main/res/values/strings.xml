@@ -2,13 +2,8 @@
     <string name="app_name">PrivFileManager</string>
     <string name="menu_request_shizuku">Shizuku権限を要求</string>
     <string name="menu_root">Root状態を確認</string>
-    <string name="menu_git_clone">GitHubプロジェクトを読み込む</string>
     <string name="menu_app_data">debuggableアプリのデータを開く</string>
     <string name="menu_settings">設定</string>
-    <string name="hint_repo_url">https://github.com/owner/repo.git</string>
-    <string name="hint_branch">ブランチ (省略可)</string>
-    <string name="hint_token">アクセストークン (private repo用・省略可)</string>
-    <string name="action_clone">読み込む</string>
     <string name="action_save">保存</string>
     <string name="up_directory">.. (上へ)</string>
     <string name="action_force_open_text">テキストとして強制的に開く(非推奨)</string>
@@ -24,8 +19,8 @@
     <string name="action_cut">切り取り</string>
     <string name="action_delete">削除</string>
     <string name="action_cancel">キャンセル</string>
-    <string name="action_compress">圧縮(ZIP)</string>
-    <string name="action_extract">展開(ZIP)</string>
+    <string name="action_compress">圧縮</string>
+    <string name="action_extract">展開</string>
     <string name="action_quick_access">クイックアクセス</string>
     <string name="action_go_to_path">パスを直接入力</string>
     <string name="action_change_permissions">パーミッションを変更</string>

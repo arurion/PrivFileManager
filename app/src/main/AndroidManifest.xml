@@ -63,10 +63,6 @@
             android:exported="false" />
 
         <activity
-            android:name=".ui.GitCloneActivity"
-            android:exported="false" />
-
-        <activity
             android:name=".ui.AppDataBrowserActivity"
             android:exported="false" />
 

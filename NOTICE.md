@@ -32,7 +32,6 @@
 | Material Components for Android | Apache License 2.0 |
 | Kotlin標準ライブラリ / kotlinx.coroutines | Apache License 2.0 |
 | Shizuku API (`dev.rikka.shizuku:api`, `:provider`) | Apache License 2.0 |
-| JGit (`org.eclipse.jgit`) | BSD-3-Clause (Eclipse Distribution License 1.0) |
 | Apache Commons Compress (`org.apache.commons:commons-compress`) | Apache License 2.0 |
 | XZ for Java (`org.tukaani:xz`, commons-compressのtar.xz対応に使用) | パブリックドメイン |
 | junrar (`com.github.junrar:junrar`) | UnRARライセンス(下記参照) |

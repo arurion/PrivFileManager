@@ -40,6 +40,17 @@ class FileAdapter(
     override fun onBindViewHolder(holder: VH, position: Int) {
         val entry = items[position]
 
+        if (entry.isParentEntry) {
+            holder.binding.iconView.setImageResource(R.drawable.ic_arrow_upward)
+            holder.binding.nameView.text = holder.itemView.context.getString(R.string.up_directory)
+            holder.binding.metaView.text = ""
+            holder.binding.selectCheckbox.visibility = android.view.View.GONE
+            holder.binding.selectCheckbox.setOnCheckedChangeListener(null)
+            holder.itemView.setOnClickListener { onClick(entry) }
+            holder.itemView.setOnLongClickListener { true }
+            return
+        }
+
         val iconRes = when {
             entry.isSymlink -> R.drawable.ic_symlink
             entry.isDirectory -> R.drawable.ic_folder

@@ -81,9 +81,6 @@ dependencies {
     implementation("dev.rikka.shizuku:api:13.1.5")
     implementation("dev.rikka.shizuku:provider:13.1.5")
 
-    // GitHubリポジトリのclone/pull用 (ネイティブgitバイナリ非依存)
-    implementation("org.eclipse.jgit:org.eclipse.jgit:6.9.0.202403050737-r")
-
     // アーカイブ対応: いずれも純Java実装でNDK/ネイティブ.soビルド不要
     //  - Apache Commons Compress (Apache License 2.0): tar / tar.gz / tar.bz2 / 7z(読取)
     //  - junrar (UnRARライセンス): RAR書庫の「読み取り専用」展開のみ。

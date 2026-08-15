@@ -15,7 +15,6 @@
     <item android:id="@+id/action_selection_mode" android:title="@string/action_selection_mode" app:showAsAction="never" />
     <item android:id="@+id/action_request_shizuku" android:title="@string/menu_request_shizuku" app:showAsAction="never" />
     <item android:id="@+id/action_root_check" android:title="@string/menu_root" app:showAsAction="never" />
-    <item android:id="@+id/action_git_clone" android:title="@string/menu_git_clone" app:showAsAction="never" />
     <item android:id="@+id/action_app_data" android:title="@string/menu_app_data" app:showAsAction="never" />
     <item android:id="@+id/action_jump_foreground_app" android:title="@string/action_jump_foreground_app" app:showAsAction="never" />
     <item android:id="@+id/action_settings" android:title="@string/menu_settings" app:showAsAction="never" />

@@ -9,5 +9,7 @@ data class FileEntry(
     val sizeBytes: Long,
     val permissions: String,
     val owner: String,
-    val group: String
+    val group: String,
+    /** 一覧の先頭に挿入する「上のディレクトリへ」の疑似エントリかどうか */
+    val isParentEntry: Boolean = false
 )
