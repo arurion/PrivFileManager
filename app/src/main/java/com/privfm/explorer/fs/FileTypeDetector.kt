@@ -29,6 +29,41 @@ object FileTypeDetector {
 
     enum class Kind { TEXT, BINARY, UNKNOWN }
 
+    /**
+     * 一覧表示でのアイコン用の大まかな種別。
+     * AOSP DocumentsUI(IconUtils/FileTypeMap)と同様、拡張子からファイル種別を分類して
+     * カテゴリごとのアイコンを出し分ける方式(1ファイルごとに何百種類ものアイコンは用意せず、
+     * 代表的なカテゴリだけをベクターアイコンとして持つ)。
+     */
+    enum class IconCategory { IMAGE, VIDEO, AUDIO, ARCHIVE, PDF, APK, CODE, DOCUMENT, GENERIC }
+
+    private val IMAGE_EXTENSIONS = setOf("png", "jpg", "jpeg", "gif", "webp", "bmp", "svg", "heic", "heif")
+    private val VIDEO_EXTENSIONS = setOf("mp4", "webm", "mov", "avi", "mkv", "3gp", "m4v")
+    private val AUDIO_EXTENSIONS = setOf("mp3", "wav", "ogg", "flac", "m4a", "aac", "opus")
+    private val ARCHIVE_EXTENSIONS = setOf("zip", "tar", "gz", "tgz", "bz2", "tbz2", "xz", "txz", "7z", "rar")
+    private val CODE_EXTENSIONS = setOf(
+        "kt", "java", "py", "js", "ts", "c", "h", "cpp", "hpp", "rs", "go",
+        "rb", "php", "sh", "bash", "sql", "json", "xml", "yml", "yaml", "gradle", "kts", "html", "css"
+    )
+    private val DOCUMENT_EXTENSIONS = setOf("doc", "docx", "xls", "xlsx", "ppt", "pptx", "txt", "md", "csv")
+
+    /** 拡張子からアイコン表示用のカテゴリを求める */
+    fun iconCategory(fileName: String): IconCategory {
+        val ext = fileName.substringAfterLast('.', "").lowercase(Locale.ROOT)
+        return when {
+            ext.isEmpty() -> IconCategory.GENERIC
+            ext == "pdf" -> IconCategory.PDF
+            ext == "apk" -> IconCategory.APK
+            ext in IMAGE_EXTENSIONS -> IconCategory.IMAGE
+            ext in VIDEO_EXTENSIONS -> IconCategory.VIDEO
+            ext in AUDIO_EXTENSIONS -> IconCategory.AUDIO
+            ext in ARCHIVE_EXTENSIONS -> IconCategory.ARCHIVE
+            ext in CODE_EXTENSIONS -> IconCategory.CODE
+            ext in DOCUMENT_EXTENSIONS -> IconCategory.DOCUMENT
+            else -> IconCategory.GENERIC
+        }
+    }
+
     fun kindByExtension(fileName: String): Kind {
         val ext = fileName.substringAfterLast('.', "").lowercase(Locale.ROOT)
         return when {

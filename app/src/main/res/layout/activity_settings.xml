@@ -55,33 +55,4 @@
 
     </RadioGroup>
 
-    <View
-        android:layout_width="match_parent"
-        android:layout_height="1dp"
-        android:layout_marginVertical="20dp"
-        android:background="@color/chrome_edge_highlight" />
-
-    <TextView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="@string/settings_accessibility_title"
-        android:textStyle="bold"
-        android:textColor="@color/text_primary"
-        android:layout_marginBottom="6dp" />
-
-    <TextView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="@string/settings_accessibility_desc"
-        android:textColor="@color/text_secondary"
-        android:textSize="13sp"
-        android:layout_marginBottom="12dp" />
-
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/openAccessibilitySettingsButton"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="OS設定を開く"
-        app:backgroundTint="@color/chrome_tint" />
-
 </LinearLayout>

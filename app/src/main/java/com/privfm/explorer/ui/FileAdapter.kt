@@ -7,6 +7,7 @@ import androidx.recyclerview.widget.RecyclerView
 import com.privfm.explorer.R
 import com.privfm.explorer.databinding.ItemFileBinding
 import com.privfm.explorer.fs.FileEntry
+import com.privfm.explorer.fs.FileTypeDetector
 
 /**
  * ファイル一覧アダプタ。
@@ -42,7 +43,17 @@ class FileAdapter(
         val iconRes = when {
             entry.isSymlink -> R.drawable.ic_symlink
             entry.isDirectory -> R.drawable.ic_folder
-            else -> R.drawable.ic_file
+            else -> when (FileTypeDetector.iconCategory(entry.name)) {
+                FileTypeDetector.IconCategory.IMAGE -> R.drawable.ic_file_image
+                FileTypeDetector.IconCategory.VIDEO -> R.drawable.ic_file_video
+                FileTypeDetector.IconCategory.AUDIO -> R.drawable.ic_file_audio
+                FileTypeDetector.IconCategory.ARCHIVE -> R.drawable.ic_file_archive
+                FileTypeDetector.IconCategory.PDF -> R.drawable.ic_file_pdf
+                FileTypeDetector.IconCategory.APK -> R.drawable.ic_file_apk
+                FileTypeDetector.IconCategory.CODE -> R.drawable.ic_file_code
+                FileTypeDetector.IconCategory.DOCUMENT -> R.drawable.ic_file_document
+                FileTypeDetector.IconCategory.GENERIC -> R.drawable.ic_file
+            }
         }
         holder.binding.iconView.setImageResource(iconRes)
 

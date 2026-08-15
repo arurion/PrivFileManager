@@ -84,6 +84,15 @@ dependencies {
     // GitHubリポジトリのclone/pull用 (ネイティブgitバイナリ非依存)
     implementation("org.eclipse.jgit:org.eclipse.jgit:6.9.0.202403050737-r")
 
+    // アーカイブ対応: いずれも純Java実装でNDK/ネイティブ.soビルド不要
+    //  - Apache Commons Compress (Apache License 2.0): tar / tar.gz / tar.bz2 / 7z(読取)
+    //  - junrar (UnRARライセンス): RAR書庫の「読み取り専用」展開のみ。
+    //    RAR互換の圧縮アーカイバを作る用途への使用は禁止(ライセンス条項どおり、本アプリも展開専用として扱う)
+    implementation("org.apache.commons:commons-compress:1.26.2")
+    implementation("com.github.junrar:junrar:7.5.5")
+    // commons-compressのXZ(.tar.xz)対応に必要
+    implementation("org.tukaani:xz:1.9")
+
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
 }

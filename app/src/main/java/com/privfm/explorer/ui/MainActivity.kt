@@ -360,32 +360,50 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
-     * ForegroundAppAccessibilityService が検知した「今表示されているアプリ」の
-     * パッケージ名を使い、そのアプリのデータ領域を(debuggableであれば)新しいブラウザとして開く。
+     * `ps` で取得した実行中プロセスの一覧のうち、debuggableなアプリだけを選択肢として表示し、
+     * 選んだアプリのデータ領域を新しいブラウザとして開く。
+     *
+     * 以前はAccessibilityServiceで「今画面に表示されているアプリ」を自動検知する方式を
+     * 試みたが、com.android.systemui のオーバーレイウィンドウ(ステータスバー等)まで
+     * 拾ってしまい実用に耐えなかったため、この一覧選択方式に置き換えている。
      */
     private fun jumpToForegroundApp() {
-        val pkg = com.privfm.explorer.service.ForegroundAppAccessibilityService.lastForegroundPackage
-        if (pkg == null) {
-            MaterialAlertDialogBuilder(this)
-                .setTitle("検知できていません")
-                .setMessage("フォアグラウンドアプリがまだ検知されていません。設定からAccessibilityサービスを有効にしてから、対象アプリを一度表示してください。")
-                .setPositiveButton("設定を開く") { _, _ -> startActivity(Intent(this, SettingsActivity::class.java)) }
-                .setNegativeButton("閉じる", null)
-                .show()
-            return
+        binding.loadingIndicator.visibility = android.view.View.VISIBLE
+        lifecycleScope.launch(Dispatchers.IO) {
+            val shell = ShellManager.current()
+            if (!shell.isAvailable()) {
+                withContext(Dispatchers.Main) {
+                    binding.loadingIndicator.visibility = android.view.View.GONE
+                    Toast.makeText(this@MainActivity, "実行中プロセスの取得にはShizukuまたはRootが必要です", Toast.LENGTH_LONG).show()
+                }
+                return@launch
+            }
+            val running = com.privfm.explorer.fs.RunningAppsHelper.listRunningApps(shell)
+                .map { it.packageName }.toSet()
+            val debuggableApps = com.privfm.explorer.fs.DebuggableAppHelper.listDebuggableApps(this@MainActivity)
+            val candidates = debuggableApps.filter { it.packageName in running }
+
+            withContext(Dispatchers.Main) {
+                binding.loadingIndicator.visibility = android.view.View.GONE
+                if (candidates.isEmpty()) {
+                    Toast.makeText(this@MainActivity, "実行中のdebuggableアプリが見つかりませんでした", Toast.LENGTH_LONG).show()
+                    return@withContext
+                }
+                val labels = candidates.map { "${it.label} (${it.packageName})" }.toTypedArray()
+                MaterialAlertDialogBuilder(this@MainActivity)
+                    .setTitle(getString(R.string.action_jump_foreground_app))
+                    .setItems(labels) { _, which ->
+                        val app = candidates[which]
+                        val intent = Intent(this@MainActivity, MainActivity::class.java).apply {
+                            putExtra(EXTRA_ROOT_PATH, app.dataDir)
+                            putExtra(EXTRA_RUN_AS_PACKAGE, app.packageName)
+                            putExtra(EXTRA_TITLE, app.label)
+                        }
+                        startActivity(intent)
+                    }
+                    .show()
+            }
         }
-        val apps = com.privfm.explorer.fs.DebuggableAppHelper.listDebuggableApps(this)
-        val app = apps.find { it.packageName == pkg }
-        if (app == null) {
-            Toast.makeText(this, "$pkg はdebuggableではないため、run-as経由のデータアクセスはできません", Toast.LENGTH_LONG).show()
-            return
-        }
-        val intent = Intent(this, MainActivity::class.java).apply {
-            putExtra(EXTRA_ROOT_PATH, app.dataDir)
-            putExtra(EXTRA_RUN_AS_PACKAGE, app.packageName)
-            putExtra(EXTRA_TITLE, app.label)
-        }
-        startActivity(intent)
     }
 
     // ---- パーミッション変更(chmod) ----
@@ -526,34 +544,71 @@ class MainActivity : AppCompatActivity() {
             .show()
     }
 
+    /** 圧縮先として選べる形式(RAR/7Zはライセンス上/仕様上、展開専用のため含めない) */
+    private val compressibleFormats = listOf(
+        "ZIP (.zip)" to ArchiveUtil.Format.ZIP,
+        "TAR (.tar)" to ArchiveUtil.Format.TAR,
+        "TAR.GZ (.tar.gz)" to ArchiveUtil.Format.TAR_GZ,
+        "TAR.BZ2 (.tar.bz2)" to ArchiveUtil.Format.TAR_BZ2,
+        "TAR.XZ (.tar.xz)" to ArchiveUtil.Format.TAR_XZ,
+    )
+
     private fun compressSelected() {
         val targets = currentEntries.filter { selectedPaths.contains(it.path) }
         if (targets.isEmpty()) return
-        val input = android.widget.EditText(this).apply { setText("archive.zip") }
+        val labels = compressibleFormats.map { it.first }.toTypedArray()
+        var selectedIndex = 0
         MaterialAlertDialogBuilder(this)
             .setTitle(getString(R.string.action_compress))
-            .setView(input)
-            .setPositiveButton("圧縮") { _, _ ->
-                val zipName = input.text.toString().trim().let { if (it.endsWith(".zip")) it else "$it.zip" }
-                val destPath = "${currentPath.trimEnd('/')}/$zipName"
-                ensureNotificationPermission()
-                ClipboardHolder.archiveTargets = targets
-                val svcIntent = Intent(this, ArchiveService::class.java).apply {
-                    putExtra(ArchiveService.EXTRA_ACTION, ArchiveService.ACTION_COMPRESS)
-                    putExtra(ArchiveService.EXTRA_RUN_AS_PACKAGE, runAsPackage)
-                    putExtra(ArchiveService.EXTRA_DEST_PATH, destPath)
-                    putExtra(ArchiveService.EXTRA_REFRESH_PATH, currentPath)
+            .setSingleChoiceItems(labels, selectedIndex) { _, which -> selectedIndex = which }
+            .setPositiveButton("次へ") { _, _ ->
+                val format = compressibleFormats[selectedIndex].second
+                val defaultExt = when (format) {
+                    ArchiveUtil.Format.ZIP -> ".zip"
+                    ArchiveUtil.Format.TAR -> ".tar"
+                    ArchiveUtil.Format.TAR_GZ -> ".tar.gz"
+                    ArchiveUtil.Format.TAR_BZ2 -> ".tar.bz2"
+                    ArchiveUtil.Format.TAR_XZ -> ".tar.xz"
+                    else -> ".zip"
                 }
-                startForegroundServiceCompat(svcIntent)
-                setSelectionMode(false)
-                Toast.makeText(this, "バックグラウンドで圧縮を開始しました", Toast.LENGTH_SHORT).show()
+                val input = android.widget.EditText(this).apply { setText("archive$defaultExt") }
+                MaterialAlertDialogBuilder(this)
+                    .setTitle("ファイル名")
+                    .setView(input)
+                    .setPositiveButton("圧縮") { _, _ ->
+                        val name = input.text.toString().trim().let { if (it.endsWith(defaultExt)) it else "$it$defaultExt" }
+                        val destPath = "${currentPath.trimEnd('/')}/$name"
+                        ensureNotificationPermission()
+                        ClipboardHolder.archiveTargets = targets
+                        val svcIntent = Intent(this, ArchiveService::class.java).apply {
+                            putExtra(ArchiveService.EXTRA_ACTION, ArchiveService.ACTION_COMPRESS)
+                            putExtra(ArchiveService.EXTRA_RUN_AS_PACKAGE, runAsPackage)
+                            putExtra(ArchiveService.EXTRA_DEST_PATH, destPath)
+                            putExtra(ArchiveService.EXTRA_REFRESH_PATH, currentPath)
+                        }
+                        startForegroundServiceCompat(svcIntent)
+                        setSelectionMode(false)
+                        Toast.makeText(this, "バックグラウンドで圧縮を開始しました", Toast.LENGTH_SHORT).show()
+                    }
+                    .setNegativeButton("キャンセル", null)
+                    .show()
             }
             .setNegativeButton("キャンセル", null)
             .show()
     }
 
-    private fun extractZip(entry: FileEntry) {
-        val destDir = "${currentPath.trimEnd('/')}/${entry.name.removeSuffix(".zip")}"
+    /**
+     * アーカイブ展開。ZIP/TAR系/7Z/RARいずれも本アプリ内蔵の純Javaライブラリで直接展開する
+     * (Apache Commons Compress / junrar。ネイティブツールへの依存やShizuku越しのPATH探索は不要)。
+     * RARは読み取り専用として扱う(UnRARライセンス条項に基づく)。
+     */
+    private fun extractArchive(entry: FileEntry) {
+        val format = ArchiveUtil.detectFormat(entry.name)
+        if (format == null) {
+            Toast.makeText(this, "未対応の書庫形式です", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val destDir = "${currentPath.trimEnd('/')}/${entry.name.substringBefore(".")}"
         ensureNotificationPermission()
         val svcIntent = Intent(this, ArchiveService::class.java).apply {
             putExtra(ArchiveService.EXTRA_ACTION, ArchiveService.ACTION_EXTRACT)
@@ -684,10 +739,10 @@ class MainActivity : AppCompatActivity() {
 
     private fun onEntryLongClicked(entry: FileEntry): Boolean {
         if (selectionMode) { toggleSelection(entry); return true }
-        val isZip = !entry.isDirectory && entry.name.endsWith(".zip", ignoreCase = true)
+        val isArchive = !entry.isDirectory && ArchiveUtil.detectFormat(entry.name) != null
         val options = mutableListOf<String>()
         if (!entry.isDirectory) options.add("開き方を選択…")
-        if (isZip) options.add(getString(R.string.action_extract))
+        if (isArchive) options.add(getString(R.string.action_extract))
         options.addAll(listOf("削除", "リネーム", "パーミッションを変更"))
 
         MaterialAlertDialogBuilder(this)
@@ -698,8 +753,8 @@ class MainActivity : AppCompatActivity() {
                     if (idx == 0) { showOpenWithChooser(entry); return@setItems }
                     idx--
                 }
-                if (isZip) {
-                    if (idx == 0) { extractZip(entry); return@setItems }
+                if (isArchive) {
+                    if (idx == 0) { extractArchive(entry); return@setItems }
                     idx--
                 }
                 when (idx) {

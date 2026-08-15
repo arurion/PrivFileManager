@@ -44,14 +44,15 @@ class ArchiveService : Service() {
             val fs = PrivilegedFileSystem(ShellManager.current(), runAsPackage)
             val result: Result<Unit> = when (action) {
                 ACTION_COMPRESS -> {
-                    val destZipPath = intent?.getStringExtra(EXTRA_DEST_PATH) ?: ""
+                    val destPath = intent?.getStringExtra(EXTRA_DEST_PATH) ?: ""
                     val entries = ClipboardHolder.archiveTargets
-                    ArchiveUtil.compress(fs, entries, destZipPath)
+                    val format = ArchiveUtil.detectFormat(destPath) ?: ArchiveUtil.Format.ZIP
+                    ArchiveUtil.compress(fs, entries, destPath, format)
                 }
                 ACTION_EXTRACT -> {
-                    val zipPath = intent?.getStringExtra(EXTRA_SOURCE_PATH) ?: ""
+                    val archivePath = intent?.getStringExtra(EXTRA_SOURCE_PATH) ?: ""
                     val destDir = intent?.getStringExtra(EXTRA_DEST_PATH) ?: ""
-                    ArchiveUtil.extract(fs, zipPath, destDir)
+                    ArchiveUtil.extract(fs, archivePath, destDir)
                 }
                 else -> Result.failure(IllegalArgumentException("不明な操作: $action"))
             }

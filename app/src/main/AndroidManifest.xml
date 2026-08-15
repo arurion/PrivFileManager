@@ -80,22 +80,6 @@
             android:exported="false"
             android:foregroundServiceType="dataSync" />
 
-        <!-- フォアグラウンドアプリのパッケージ名のみを検知するAccessibilityService。
-             画面内容(テキスト・ノードツリー)は取得しない(accessibility_service_config.xml の
-             canRetrieveWindowContent="false" で技術的にも取得不能にしている)。
-             ユーザーが設定アプリから明示的に有効化するまでは一切動作しない。 -->
-        <service
-            android:name=".service.ForegroundAppAccessibilityService"
-            android:exported="true"
-            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
-            <intent-filter>
-                <action android:name="android.accessibilityservice.AccessibilityService" />
-            </intent-filter>
-            <meta-data
-                android:name="android.accessibilityservice"
-                android:resource="@xml/accessibility_service_config" />
-        </service>
-
         <!-- Shizuku公式ガイド必須項目: ShizukuProviderの明示宣言 -->
         <provider
             android:name="rikka.shizuku.ShizukuProvider"

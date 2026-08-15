@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 package com.privfm.explorer.ui
 
-import android.content.Intent
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
 import com.privfm.explorer.databinding.ActivitySettingsBinding
@@ -31,12 +30,6 @@ class SettingsActivity : AppCompatActivity() {
                 binding.modeNormal.id -> ShellMode.NORMAL
                 else -> ShellMode.AUTO
             }
-        }
-
-        // AccessibilityServiceはアプリから直接ON/OFFできないため、OSの設定画面へ誘導する。
-        // (ユーザーが明示的に有効化しない限り、フォアグラウンドアプリ検知機能は一切動作しない)
-        binding.openAccessibilitySettingsButton.setOnClickListener {
-            startActivity(Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS))
         }
     }
 }
