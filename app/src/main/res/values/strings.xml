@@ -25,4 +25,6 @@
     <string name="action_go_to_path">パスを直接入力</string>
     <string name="action_change_permissions">パーミッションを変更</string>
     <string name="action_jump_foreground_app">実行中のアプリのデータを開く</string>
+    <string name="documents_provider_summary">内部ストレージ</string>
+    <string name="action_find">検索</string>
 </resources>

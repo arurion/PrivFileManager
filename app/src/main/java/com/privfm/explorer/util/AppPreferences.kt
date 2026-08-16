@@ -22,6 +22,7 @@ object AppPreferences {
     private const val KEY_CONFIRM_DELETE = "confirm_before_delete"
     private const val KEY_SORT_MODE = "sort_mode"
     private const val KEY_SORT_ASCENDING = "sort_ascending"
+    private const val KEY_BOTTOM_SHEET_MENUS = "bottom_sheet_menus"
 
     private lateinit var prefs: SharedPreferences
     private var initialized = false
@@ -53,4 +54,15 @@ object AppPreferences {
     var sortAscending: Boolean
         get() = prefs.getBoolean(KEY_SORT_ASCENDING, true)
         set(value) = prefs.edit().putBoolean(KEY_SORT_ASCENDING, value).apply()
+
+    /**
+     * ファイル操作メニューをボトムシート(下からせり出す形)で出すか、
+     * 従来のダイアログ(画面中央)で出すか。どちらが好みかは人によるため、
+     * 開発者の好みを一方的に押し付けず設定項目として選べるようにする。
+     * デフォルトはFossify File Manager/Files by Google等、近年の主要な
+     * ファイルマネージャーで一般的なボトムシートに合わせている。
+     */
+    var useBottomSheetMenus: Boolean
+        get() = prefs.getBoolean(KEY_BOTTOM_SHEET_MENUS, true)
+        set(value) = prefs.edit().putBoolean(KEY_BOTTOM_SHEET_MENUS, value).apply()
 }

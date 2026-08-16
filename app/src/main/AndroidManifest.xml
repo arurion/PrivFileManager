@@ -94,5 +94,18 @@
                 android:resource="@xml/file_paths" />
         </provider>
 
+        <!-- SAF(Storage Access Framework)対応: 他アプリのファイル選択ダイアログ(システムの
+             DocumentsUI)の左メニューに本アプリが表示されるようにする -->
+        <provider
+            android:name=".documents.PrivFmDocumentsProvider"
+            android:authorities="${applicationId}.documents"
+            android:exported="true"
+            android:grantUriPermissions="true"
+            android:permission="android.permission.MANAGE_DOCUMENTS">
+            <intent-filter>
+                <action android:name="android.content.action.DOCUMENTS_PROVIDER" />
+            </intent-filter>
+        </provider>
+
     </application>
 </manifest>

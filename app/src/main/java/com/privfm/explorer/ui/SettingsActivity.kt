@@ -16,6 +16,8 @@ class SettingsActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivitySettingsBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        setSupportActionBar(binding.settingsToolbar)
+        supportActionBar?.setDisplayHomeAsUpEnabled(true)
 
         when (ShellManager.preferredMode) {
             ShellMode.AUTO -> binding.modeAuto.isChecked = true
@@ -42,5 +44,15 @@ class SettingsActivity : AppCompatActivity() {
         binding.switchConfirmDelete.setOnCheckedChangeListener { _, checked ->
             AppPreferences.confirmBeforeDelete = checked
         }
+
+        binding.switchBottomSheetMenus.isChecked = AppPreferences.useBottomSheetMenus
+        binding.switchBottomSheetMenus.setOnCheckedChangeListener { _, checked ->
+            AppPreferences.useBottomSheetMenus = checked
+        }
+    }
+
+    override fun onSupportNavigateUp(): Boolean {
+        onBackPressedDispatcher.onBackPressed()
+        return true
     }
 }

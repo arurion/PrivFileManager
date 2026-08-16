@@ -35,6 +35,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import rikka.shizuku.Shizuku
 import java.io.File
+import com.google.android.material.bottomsheet.BottomSheetDialog
 
 /**
  * ファイルブラウザ画面。
@@ -487,6 +488,36 @@ class MainActivity : AppCompatActivity() {
 
 
 
+    /**
+     * 操作メニューを表示する共通ヘルパー。[AppPreferences.useBottomSheetMenus]の設定に応じて、
+     * 画面中央のダイアログ / 下からせり出すボトムシートのどちらかを出し分ける。
+     * (開発者個人の好みを一方的に押し付けず、設定で選べるようにするため)
+     */
+    private fun showActionMenu(title: String, items: List<String>, onSelect: (Int) -> Unit) {
+        if (AppPreferences.useBottomSheetMenus) {
+            val sheet = BottomSheetDialog(this)
+            val view = layoutInflater.inflate(R.layout.bottomsheet_action_menu, null)
+            view.findViewById<android.widget.TextView>(R.id.actionSheetTitle).text = title
+            val container = view.findViewById<android.widget.LinearLayout>(R.id.actionSheetItems)
+            items.forEachIndexed { index, label ->
+                val itemView = layoutInflater.inflate(R.layout.item_action_sheet, container, false)
+                itemView.findViewById<android.widget.TextView>(R.id.actionItemText).text = label
+                itemView.setOnClickListener {
+                    sheet.dismiss()
+                    onSelect(index)
+                }
+                container.addView(itemView)
+            }
+            sheet.setContentView(view)
+            sheet.show()
+        } else {
+            MaterialAlertDialogBuilder(this)
+                .setTitle(title)
+                .setItems(items.toTypedArray()) { _, which -> onSelect(which) }
+                .show()
+        }
+    }
+
     /** FABタップ時に「新規フォルダ」「新規ファイル」を選ぶポップアップメニュー */
     private fun showCreateChoiceMenu(anchor: android.view.View) {
         val popup = android.widget.PopupMenu(this, anchor)
@@ -697,29 +728,11 @@ class MainActivity : AppCompatActivity() {
             loadDirectory(entry.path)
             return
         }
-        openFileSmart(entry, runAsPackage)
-    }
-
-    private fun openFileSmart(entry: FileEntry, runAsPkg: String?) {
-        binding.loadingIndicator.visibility = android.view.View.VISIBLE
-        lifecycleScope.launch(Dispatchers.IO) {
-            val fs = PrivilegedFileSystem(ShellManager.current(), runAsPkg)
-            val kind = FileTypeDetector.kindByExtension(entry.name)
-            val preferInternalText = when (kind) {
-                FileTypeDetector.Kind.TEXT -> true
-                FileTypeDetector.Kind.BINARY -> false
-                FileTypeDetector.Kind.UNKNOWN -> {
-                    val peek = fs.peekFile(entry.path, maxBytes = 4096)
-                    peek.map { !FileTypeDetector.looksLikeBinary(it) }.getOrDefault(false)
-                }
-            }
-            withContext(Dispatchers.Main) { binding.loadingIndicator.visibility = android.view.View.GONE }
-            if (preferInternalText) {
-                withContext(Dispatchers.Main) { openInternalEditor(entry.path, runAsPkg) }
-            } else {
-                openWithSystemChooser(entry, runAsPkg)
-            }
-        }
+        // 以前は拡張子から自動判定してテキストエディタ/外部アプリを問答無用で開いていたが、
+        // 判定が外れると意図しないアプリが開いてしまい違和感があるため、
+        // 常に「開き方」を確認するメニュー(旧・長押しメニューの一項目)を出すようにした。
+        // 詳細な操作(削除・リネーム・圧縮・展開・パーミッション変更)は引き続き長押しに割り当てる。
+        showOpenWithChooser(entry)
     }
 
     private fun openInternalEditor(path: String, runAsPkg: String?) {
@@ -745,10 +758,21 @@ class MainActivity : AppCompatActivity() {
      * 「特権パスへ書き戻すか」を確認する(debuggableアプリのデータを外部エディタで
      * 編集できない問題への対応)。
      */
-    private fun openWithSystemChooser(entry: FileEntry, runAsPkg: String?) {
+    private fun openWithSystemChooser(entry: FileEntry, runAsPkg: String?, mimeOverride: String? = null) {
         lifecycleScope.launch(Dispatchers.IO) {
             val fs = PrivilegedFileSystem(ShellManager.current(), runAsPkg)
-            val mime = ExternalOpener.mimeTypeFor(entry.name)
+
+            // 特権経路(Shizuku/Root/run-as)で読んだファイルは、シェル側でbase64化してから
+            // このアプリのプロセスメモリを経由してデコードする方式のため、あまりに巨大な
+            // ファイルだとメモリ不足でアプリごと落ちてしまっていた。事前にサイズを確認し、
+            // 安全に扱える範囲を超える場合は無理に読み込まず、理由を添えて中止する。
+            val size = fs.fileSize(entry.path).getOrNull()
+            if (size != null && size > MAX_EXTERNAL_OPEN_BYTES) {
+                withContext(Dispatchers.Main) { showFileTooLargeDialog(entry.name, size) }
+                return@launch
+            }
+
+            val mime = mimeOverride ?: ExternalOpener.mimeTypeFor(entry.name)
             val result = fs.readFile(entry.path)
             withContext(Dispatchers.Main) {
                 result.onSuccess { bytes ->
@@ -762,6 +786,8 @@ class MainActivity : AppCompatActivity() {
                             Toast.makeText(this@MainActivity, "対応する外部アプリが見つかりません。内部ビューアで開きます", Toast.LENGTH_SHORT).show()
                             openBinaryViewer(entry.path, runAsPkg)
                         }
+                    } catch (e: OutOfMemoryError) {
+                        Toast.makeText(this@MainActivity, "メモリ不足のため開けませんでした(ファイルが大きすぎます)", Toast.LENGTH_LONG).show()
                     } catch (e: Exception) {
                         Toast.makeText(this@MainActivity, "開けませんでした: ${e.message}", Toast.LENGTH_LONG).show()
                         openBinaryViewer(entry.path, runAsPkg)
@@ -771,6 +797,30 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }
+    }
+
+    private fun showFileTooLargeDialog(name: String, size: Long) {
+        val sizeLabel = formatSizeHuman(size)
+        MaterialAlertDialogBuilder(this)
+            .setTitle("ファイルが大きすぎます")
+            .setMessage(
+                "$name は $sizeLabel あります。このアプリは特権アクセス(Shizuku/Root/run-as)経由の" +
+                    "ファイルを、一旦アプリのメモリを通してから外部アプリへ渡す方式のため、" +
+                    "あまりに大きなファイルは安全に開けません。\n\n" +
+                    "Hexビューア(先頭のみ)での確認は可能です。"
+            )
+            .setPositiveButton("Hexビューアで確認") { _, _ -> openBinaryViewer(currentEntries.firstOrNull { it.name == name }?.path ?: return@setPositiveButton, runAsPackage) }
+            .setNegativeButton("閉じる", null)
+            .show()
+    }
+
+    private fun formatSizeHuman(bytes: Long): String {
+        if (bytes < 1024) return "${bytes}B"
+        val units = arrayOf("KB", "MB", "GB")
+        var value = bytes.toDouble()
+        var i = -1
+        while (value >= 1024 && i < units.size - 1) { value /= 1024; i++ }
+        return if (i < 0) "${bytes}B" else String.format("%.1f%s", value, units[i])
     }
 
     private fun checkPendingEditWriteBack() {
@@ -805,48 +855,73 @@ class MainActivity : AppCompatActivity() {
     private fun onEntryLongClicked(entry: FileEntry): Boolean {
         if (entry.isParentEntry) return false
         if (selectionMode) { toggleSelection(entry); return true }
+        // 「開き方」はタップ側のメニューに一本化したため、長押しメニューは
+        // 削除・リネーム・圧縮・展開・パーミッション変更といった、より詳しい操作専用にする。
         val isArchive = !entry.isDirectory && ArchiveUtil.detectFormat(entry.name) != null
         val options = mutableListOf<String>()
-        if (!entry.isDirectory) options.add("開き方を選択…")
         if (isArchive) options.add(getString(R.string.action_extract))
         options.add(getString(R.string.action_compress))
         options.addAll(listOf("削除", "リネーム", "パーミッションを変更"))
 
-        MaterialAlertDialogBuilder(this)
-            .setTitle(entry.name)
-            .setItems(options.toTypedArray()) { _, which ->
-                var idx = which
-                if (!entry.isDirectory) {
-                    if (idx == 0) { showOpenWithChooser(entry); return@setItems }
-                    idx--
-                }
-                if (isArchive) {
-                    if (idx == 0) { extractArchive(entry); return@setItems }
-                    idx--
-                }
-                when (idx) {
-                    0 -> compressSingle(entry)
-                    1 -> confirmDelete(entry)
-                    2 -> renameEntry(entry)
-                    3 -> showChmodDialog(entry)
-                }
+        showActionMenu(entry.name, options) { which ->
+            var idx = which
+            if (isArchive) {
+                if (idx == 0) { extractArchive(entry); return@showActionMenu }
+                idx--
             }
-            .show()
+            when (idx) {
+                0 -> compressSingle(entry)
+                1 -> confirmDelete(entry)
+                2 -> renameEntry(entry)
+                3 -> showChmodDialog(entry)
+            }
+        }
         return true
     }
 
+    /**
+     * 「〇〇を開く」メニュー。以前はタップ時に拡張子から自動判定して問答無用で
+     * (テキストエディタ or 外部アプリへ)強制的に開いていたが、判定が外れた場合に
+     * 意図しないアプリが開いて違和感があるため、常にこのメニューで確認する方式に変更した。
+     */
     private fun showOpenWithChooser(entry: FileEntry) {
-        val options = arrayOf("内部テキストエディタ", "内部Hexビューア", "外部アプリで開く(標準機能)")
-        MaterialAlertDialogBuilder(this)
-            .setTitle("${entry.name} の開き方")
-            .setItems(options) { _, which ->
-                when (which) {
-                    0 -> openInternalEditor(entry.path, runAsPackage)
-                    1 -> openBinaryViewer(entry.path, runAsPackage)
-                    2 -> openWithSystemChooser(entry, runAsPackage)
-                }
+        val options = listOf(
+            "テキストとして開く",
+            "Hexビューアで開く",
+            "外部アプリで開く(標準機能)",
+            "ファイル形式を指定して開く…"
+        )
+        showActionMenu(entry.name, options) { which ->
+            when (which) {
+                0 -> openInternalEditor(entry.path, runAsPackage)
+                1 -> openBinaryViewer(entry.path, runAsPackage)
+                2 -> openWithSystemChooser(entry, runAsPackage)
+                3 -> showOpenAsMenu(entry)
             }
-            .show()
+        }
+    }
+
+    /**
+     * Fossify File Managerの「開き方を指定」機能を参考に、拡張子による自動判定を
+     * 無視して「このファイルは実際には画像/動画/音声/PDF/APKのはずだ」と
+     * ユーザー自身がMIMEタイプを明示的に選べるようにする。
+     * (ファイル名に拡張子が無い、または実態と異なる拡張子がついている場合に有用)
+     */
+    private fun showOpenAsMenu(entry: FileEntry) {
+        val categories = listOf(
+            "テキスト" to "text/plain",
+            "画像" to "image/*",
+            "動画" to "video/*",
+            "音声" to "audio/*",
+            "PDF" to "application/pdf",
+            "APK(パッケージ)" to "application/vnd.android.package-archive",
+            "汎用(すべてのアプリから選択)" to "*/*"
+        )
+        showActionMenu("形式を指定して開く", categories.map { it.first }) { which ->
+            val (label, mime) = categories[which]
+            if (label == "テキスト") openInternalEditor(entry.path, runAsPackage)
+            else openWithSystemChooser(entry, runAsPackage, mimeOverride = mime)
+        }
     }
 
     private fun confirmDelete(entry: FileEntry) {
@@ -910,14 +985,28 @@ class MainActivity : AppCompatActivity() {
 
     /**
      * 現在地の1つ上のディレクトリへ移動する(ツールバー左上のUpボタン、
-     * および一覧先頭の".."行から共通で呼ばれる)。ルート([rootPath])では何もしない。
+     * および一覧先頭の".."行から共通で呼ばれる)。
+     * ルート([rootPath])では、それより上へは行けない
+     * (debuggableアプリのデータブラウズ時は特にアプリのデータ領域より上を見せる意味がない)ため、
+     * 物理・ジェスチャーの「戻る」と同じ挙動(呼び出し元のアプリ一覧などへ戻る)に統一する。
+     * 以前はルートで何も起きない「死んだボタン」になっていた。
      */
     private fun navigateUp() {
-        parentDirectoryPath()?.let { loadDirectory(it) }
+        val parent = parentDirectoryPath()
+        if (parent != null) loadDirectory(parent) else onBackPressed()
     }
 
     companion object {
         private const val REQ_SHIZUKU = 1001
+
+        /**
+         * 特権経路でファイルを読む際、shell側でbase64化した文字列をアプリの
+         * プロセスメモリに丸ごと保持してからデコードする都合上、あまりに大きい
+         * ファイルはメモリ不足でアプリごと落ちる原因になっていた。
+         * 安全マージンを見て80MBを上限とする(base64化で約1.33倍、デコード後の
+         * バイト配列と合わせて瞬間的に元サイズの2倍以上のメモリを使うため)。
+         */
+        private const val MAX_EXTERNAL_OPEN_BYTES = 80L * 1024 * 1024
 
         const val EXTRA_ROOT_PATH = "extra_root_path"
         const val EXTRA_RUN_AS_PACKAGE = "extra_run_as_package"

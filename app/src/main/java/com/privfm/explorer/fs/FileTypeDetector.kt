@@ -104,12 +104,12 @@ object FileTypeDetector {
     }
 
     /** 古典的な hexdump -C 風の整形 (16byte/行、アドレス + hex + ASCII) */
-    fun hexDump(bytes: ByteArray, bytesPerLine: Int = 16): String {
+    fun hexDump(bytes: ByteArray, bytesPerLine: Int = 16, baseOffset: Long = 0L): String {
         val sb = StringBuilder()
         var offset = 0
         while (offset < bytes.size) {
             val end = minOf(offset + bytesPerLine, bytes.size)
-            sb.append(String.format(Locale.ROOT, "%08X  ", offset))
+            sb.append(String.format(Locale.ROOT, "%08X  ", baseOffset + offset))
             for (i in offset until offset + bytesPerLine) {
                 if (i < end) {
                     sb.append(String.format(Locale.ROOT, "%02X ", bytes[i]))

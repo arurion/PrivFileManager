@@ -25,6 +25,7 @@ class AppDataBrowserActivity : AppCompatActivity() {
         binding = ActivityAppDataBinding.inflate(layoutInflater)
         setContentView(binding.root)
         setSupportActionBar(binding.appDataToolbar)
+        supportActionBar?.setDisplayHomeAsUpEnabled(true)
         binding.appListView.layoutManager = LinearLayoutManager(this)
 
         val apps = DebuggableAppHelper.listDebuggableApps(this)
@@ -36,5 +37,10 @@ class AppDataBrowserActivity : AppCompatActivity() {
             }
             startActivity(intent)
         }
+    }
+
+    override fun onSupportNavigateUp(): Boolean {
+        onBackPressedDispatcher.onBackPressed()
+        return true
     }
 }

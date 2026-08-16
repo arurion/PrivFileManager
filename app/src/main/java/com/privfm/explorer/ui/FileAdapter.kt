@@ -82,6 +82,10 @@ class FileAdapter(
             if (selectionMode) onToggleSelect(entry) else onClick(entry)
         }
         holder.itemView.setOnLongClickListener { onLongClick(entry) }
+
+        // ほとんどのファイルマネージャーと同様、アイコン部分をタップすると
+        // (選択モードでなくても)常に選択トグルとして機能する
+        holder.binding.iconView.setOnClickListener { onToggleSelect(entry) }
     }
 
     override fun getItemCount(): Int = items.size

@@ -10,6 +10,14 @@
   - パンくずナビゲーション(タップで任意の親ディレクトリへ直接移動)
   - ソートメニューの構成(名前/サイズ/種類、昇順・降順の切り替え)
   - mimeタイプに応じたアイコン表示の考え方(絵文字ではなくベクター画像で種別を示す)
+  - `android.provider.DocumentsProvider`の標準API構成(queryRoots/queryChildDocuments等)。
+    実装コード自体はAndroid SDK公式ドキュメント・APIシグネチャに基づく独自実装であり、
+    AOSPの`ExternalStorageProvider`等のソースコードを参照・移植したものではない
+
+- **Amaze File Manager / Fossify File Manager等の一般的なOSSファイルマネージャー**
+  - SAF(Storage Access Framework)対応: `DocumentsProvider`を実装して、他アプリの
+    ファイル選択ダイアログの左メニューに自身を表示させる、という設計方針そのものを参考にした
+    (主要なOSSファイルマネージャーの多くが同様の対応をしている)。実装コードは独自
 
 - **Amaze File Manager** (TeamAmaze, GPL-3.0-or-later)
   - Copyright (C) 2014- Arpit Khurana, Vishal Nehra, Emmanuel Messulam, Raymond Lai, Vishnu Sanal T and Contributors

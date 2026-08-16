@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:paddingBottom="8dp">
+
+    <!-- つまみ(グラビティハンドル)。指で下から引き出したという操作の手触りを
+         身体的直感に合わせて示すための、ごく控えめな装飾 -->
+    <View
+        android:layout_width="36dp"
+        android:layout_height="4dp"
+        android:layout_gravity="center_horizontal"
+        android:layout_marginTop="10dp"
+        android:layout_marginBottom="6dp"
+        android:background="@color/surface_variant" />
+
+    <TextView
+        android:id="@+id/actionSheetTitle"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingHorizontal="24dp"
+        android:paddingTop="8dp"
+        android:paddingBottom="12dp"
+        android:textSize="14sp"
+        android:textColor="@color/text_secondary"
+        android:maxLines="1"
+        android:ellipsize="middle" />
+
+    <LinearLayout
+        android:id="@+id/actionSheetItems"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical" />
+
+</LinearLayout>

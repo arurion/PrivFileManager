@@ -75,9 +75,37 @@ class PrivilegedFileSystem(
         )
     }
 
+    /** ファイルサイズをバイト単位で取得する(大容量ファイルを丸ごとメモリに載せる前の事前チェック用) */
+    fun fileSize(path: String): Result<Long> {
+        val result = shell.exec(wrap("wc -c < \"$path\""))
+        if (!result.isSuccess) {
+            return Result.failure(IllegalStateException(result.stderr.ifBlank { "サイズ取得に失敗しました" }))
+        }
+        val size = result.stdout.trim().toLongOrNull()
+            ?: return Result.failure(IllegalStateException("サイズを解釈できませんでした: ${result.stdout}"))
+        return Result.success(size)
+    }
+
     /** ファイル種別判定などのため、先頭バイトのみを効率的に読み取る */
     fun peekFile(path: String, maxBytes: Int = 4096): Result<ByteArray> {
         val result = shell.exec(wrap("head -c $maxBytes \"$path\" | base64"))
+        if (!result.isSuccess) {
+            return Result.failure(IllegalStateException(result.stderr.ifBlank { "読み込みに失敗しました" }))
+        }
+        return try {
+            Result.success(Base64.decode(result.stdout.replace("\n", ""), Base64.DEFAULT))
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * ファイルの任意の範囲だけをバイト単位で読み取る(Hexビューアのページング用)。
+     * ファイル全体をメモリに載せずに、指定範囲のみをシェル側で切り出してから転送する。
+     */
+    fun readRange(path: String, offset: Long, length: Int): Result<ByteArray> {
+        val cmd = "tail -c +${offset + 1} \"$path\" | head -c $length | base64"
+        val result = shell.exec(wrap(cmd))
         if (!result.isSuccess) {
             return Result.failure(IllegalStateException(result.stderr.ifBlank { "読み込みに失敗しました" }))
         }
