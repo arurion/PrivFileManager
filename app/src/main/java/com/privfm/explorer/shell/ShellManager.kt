@@ -1,15 +1,20 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 package com.privfm.explorer.shell
 
+import com.privfm.explorer.util.AppPreferences
+
 enum class ShellMode { AUTO, SHIZUKU, ROOT, NORMAL }
 
 /**
  * アプリ全体で使うシェルエンジンの選択ロジック。
  * AUTOの場合、Shizuku > Root > 通常 の優先順で利用可能なものを選択する。
+ * 選択したモードは[AppPreferences]経由でアプリ再起動後も維持される。
  */
 object ShellManager {
 
-    var preferredMode: ShellMode = ShellMode.AUTO
+    var preferredMode: ShellMode
+        get() = AppPreferences.shellMode
+        set(value) { AppPreferences.shellMode = value }
 
     fun current(): ShellExecutor {
         return when (preferredMode) {

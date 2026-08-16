@@ -28,7 +28,7 @@ class AppDataBrowserActivity : AppCompatActivity() {
         binding.appListView.layoutManager = LinearLayoutManager(this)
 
         val apps = DebuggableAppHelper.listDebuggableApps(this)
-        binding.appListView.adapter = AppAdapter(apps) { app ->
+        binding.appListView.adapter = AppAdapter(apps, packageManager) { app ->
             val intent = Intent(this, MainActivity::class.java).apply {
                 putExtra(MainActivity.EXTRA_ROOT_PATH, app.dataDir)
                 putExtra(MainActivity.EXTRA_RUN_AS_PACKAGE, app.packageName)

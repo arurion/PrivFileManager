@@ -1,8 +1,15 @@
 # PrivFileManager
 
+[![Build APK](https://github.com/arurion/PrivFileManager/actions/workflows/build.yml/badge.svg)](https://github.com/arurion/PrivFileManager/actions/workflows/build.yml)
+[![Latest Release](https://img.shields.io/github/v/release/arurion/PrivFileManager)](https://github.com/arurion/PrivFileManager/releases/latest)
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
+
 Shizuku / Root / 通常権限を自動で切り替えて動作する、Android向けの高度なファイルマネージャーです。
-一般的なファイルマネージャーの機能に加えて、開発者向けの特権アクセス(Shizuku・Root・`run-as`)と
-GitHubリポジトリの取り込みに対応しています。
+一般的なファイルマネージャーの機能に加えて、開発者向けの特権アクセス(Shizuku・Root・`run-as`)に
+対応しています。
+
+Copyright (C) 2026 PrivFileManager Contributors
+Licensed under the GNU General Public License v3.0 or later — see [LICENSE](LICENSE)
 
 ## 特徴
 
@@ -53,7 +60,7 @@ _準備中_
 
 ## インストール
 
-[Releases](../../releases) から最新の `PrivFileManager-release.apk` をダウンロードし、
+[Releases](https://github.com/arurion/PrivFileManager/releases/latest) から最新の `PrivFileManager-release.apk` をダウンロードし、
 端末にインストールしてください(提供元不明のアプリのインストールを許可する必要があります)。
 
 ## 使い方
@@ -63,10 +70,9 @@ _準備中_
      「Shizuku権限を要求」をタップして許可する
    - **Rootを使う場合**: root化済み端末であれば、メニューの「Root状態を確認」で自動検出される
    - **どちらも使わない場合**: 初回起動時に案内される「全ファイルアクセス」の許可のみでOK
-2. ファイル一覧をタップして移動、長押しで開き方の選択やリネーム・削除などの操作
-3. ツールバーの「複数選択モード」でチェックボックスが表示され、まとめてコピー/切り取り/削除が可能
+2. ファイル一覧をタップして移動、長押しで開き方の選択・圧縮・リネーム・削除などの操作
+3. ツールバーの「複数選択モード」でチェックボックスが表示され、まとめてコピー/切り取り/削除・圧縮が可能
 4. debuggableなアプリのデータを見る場合は、メニューの「debuggableアプリのデータを開く」から対象アプリを選択
-5. GitHubのリポジトリを取り込む場合は、メニューの「GitHubプロジェクトを読み込む」からURLを入力
 
 ## 権限・プライバシーについて
 
@@ -89,8 +95,8 @@ Gradle Wrapperのバイナリはリポジトリに含めず、`gradle/actions/se
 タグをpushするか、GitHub UIでReleaseを作成すると、ビルドされたAPKが自動的にそのReleaseへ添付されます。
 
 ```bash
-git tag v1.0.0
-git push origin v1.0.0
+git tag v5.1.0
+git push origin v5.1.0
 ```
 
 通常のブランチpushやPull Requestではこのステップはスキップされ、Releaseページには影響しません。
@@ -132,6 +138,10 @@ ui/      各画面 (ファイルブラウザ / アプリデータブラウザ / 
 ## コントリビュート
 
 Issue・Pull Requestを歓迎します。変更を加える際は、可能であれば動作確認の内容もあわせて記載してください。
+
+## 更新履歴
+
+過去の変更点は [`CHANGELOG.md`](./CHANGELOG.md) を参照してください。
 
 ## ライセンス
 

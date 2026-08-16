@@ -3,12 +3,15 @@ package com.privfm.explorer
 
 import android.app.Application
 import com.google.android.material.color.DynamicColors
+import com.privfm.explorer.util.AppPreferences
 import rikka.shizuku.Shizuku
 
 class PrivFmApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
+
+        AppPreferences.init(this)
 
         // Android 12+ では端末の壁紙から生成されるMaterial You(Dynamic Color)を最優先で適用する。
         // これはAOSP自身(設定アプリ・ファイルアプリ等)が使う標準の配色機構であり、

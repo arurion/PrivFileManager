@@ -6,6 +6,7 @@ import androidx.appcompat.app.AppCompatActivity
 import com.privfm.explorer.databinding.ActivitySettingsBinding
 import com.privfm.explorer.shell.ShellMode
 import com.privfm.explorer.shell.ShellManager
+import com.privfm.explorer.util.AppPreferences
 
 class SettingsActivity : AppCompatActivity() {
 
@@ -30,6 +31,16 @@ class SettingsActivity : AppCompatActivity() {
                 binding.modeNormal.id -> ShellMode.NORMAL
                 else -> ShellMode.AUTO
             }
+        }
+
+        binding.switchShowHidden.isChecked = AppPreferences.showHiddenFiles
+        binding.switchShowHidden.setOnCheckedChangeListener { _, checked ->
+            AppPreferences.showHiddenFiles = checked
+        }
+
+        binding.switchConfirmDelete.isChecked = AppPreferences.confirmBeforeDelete
+        binding.switchConfirmDelete.setOnCheckedChangeListener { _, checked ->
+            AppPreferences.confirmBeforeDelete = checked
         }
     }
 }

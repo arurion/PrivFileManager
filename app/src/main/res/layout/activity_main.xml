@@ -64,11 +64,31 @@
         android:indeterminate="true"
         android:visibility="gone" />
 
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/fileListView"
+    <FrameLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_weight="1"
-        android:background="@color/content_surface" />
+        android:layout_weight="1">
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/fileListView"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="@color/content_surface" />
+
+        <!-- 新規作成の主要な導線。ファイル操作アプリで最も頻繁に使われる操作の一つなので、
+             オーバーフローメニューの奥に埋めず、常に手の届く位置に固定表示する
+             (要所を光・影ではっきり立たせる、という原則1の例外にあたる要素)。 -->
+        <com.google.android.material.floatingactionbutton.FloatingActionButton
+            android:id="@+id/fabCreate"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom|end"
+            android:layout_margin="20dp"
+            android:contentDescription="@string/action_new_folder"
+            app:srcCompat="@drawable/ic_add"
+            app:tint="@android:color/white"
+            app:backgroundTint="@color/chrome_tint" />
+
+    </FrameLayout>
 
 </LinearLayout>

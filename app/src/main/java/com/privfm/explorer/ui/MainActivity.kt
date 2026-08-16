@@ -28,6 +28,7 @@ import com.privfm.explorer.service.ArchiveService
 import com.privfm.explorer.shell.RootShell
 import com.privfm.explorer.shell.ShellManager
 import com.privfm.explorer.shell.ShizukuShell
+import com.privfm.explorer.util.AppPreferences
 import com.privfm.explorer.util.ExternalOpener
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -61,8 +62,8 @@ class MainActivity : AppCompatActivity() {
     private var currentPath: String = "/"
     private var currentEntries: List<FileEntry> = emptyList()
     private var searchQuery: String = ""
-    private var sortMode: SortMode = SortMode.NAME
-    private var sortAscending: Boolean = true
+    private var sortMode: SortMode = AppPreferences.sortMode
+    private var sortAscending: Boolean = AppPreferences.sortAscending
 
     // 複数選択モード
     private var selectionMode = false
@@ -131,6 +132,8 @@ class MainActivity : AppCompatActivity() {
         )
         binding.fileListView.layoutManager = LinearLayoutManager(this)
         binding.fileListView.adapter = adapter
+
+        binding.fabCreate.setOnClickListener { showCreateChoiceMenu(it) }
 
         refreshStatusBar()
         if (runAsPackage == null) maybeRequestAllFilesAccess()
@@ -284,8 +287,10 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun applyFilterAndSort() {
-        val filtered = if (searchQuery.isBlank()) currentEntries
-        else currentEntries.filter { it.name.contains(searchQuery, ignoreCase = true) }
+        val hiddenFiltered = if (AppPreferences.showHiddenFiles) currentEntries
+        else currentEntries.filter { !it.name.startsWith(".") }
+        val filtered = if (searchQuery.isBlank()) hiddenFiltered
+        else hiddenFiltered.filter { it.name.contains(searchQuery, ignoreCase = true) }
         val sorted = sortEntries(filtered, sortMode, sortAscending)
         val withParent = buildParentEntry()?.let { listOf(it) + sorted } ?: sorted
         adapter.submitList(withParent)
@@ -349,6 +354,8 @@ class MainActivity : AppCompatActivity() {
                 val picked = modes[which]
                 sortAscending = if (picked == sortMode) !sortAscending else true
                 sortMode = picked
+                AppPreferences.sortMode = sortMode
+                AppPreferences.sortAscending = sortAscending
                 applyFilterAndSort()
             }
             .show()
@@ -480,6 +487,21 @@ class MainActivity : AppCompatActivity() {
 
 
 
+    /** FABタップ時に「新規フォルダ」「新規ファイル」を選ぶポップアップメニュー */
+    private fun showCreateChoiceMenu(anchor: android.view.View) {
+        val popup = android.widget.PopupMenu(this, anchor)
+        popup.menu.add(0, 1, 0, R.string.action_new_folder)
+        popup.menu.add(0, 2, 1, R.string.action_new_file)
+        popup.setOnMenuItemClickListener { item ->
+            when (item.itemId) {
+                1 -> showCreateDialog(isDirectory = true)
+                2 -> showCreateDialog(isDirectory = false)
+            }
+            true
+        }
+        popup.show()
+    }
+
     private fun showCreateDialog(isDirectory: Boolean) {
         val input = android.widget.EditText(this)
         MaterialAlertDialogBuilder(this)
@@ -552,24 +574,26 @@ class MainActivity : AppCompatActivity() {
     private fun confirmDeleteSelected() {
         val count = selectedPaths.size
         if (count == 0) return
+        val targets = currentEntries.filter { selectedPaths.contains(it.path) }
+        val performDelete: () -> Unit = {
+            lifecycleScope.launch(Dispatchers.IO) {
+                val fs = PrivilegedFileSystem(ShellManager.current(), runAsPackage)
+                var okCount = 0
+                for (t in targets) {
+                    if (fs.delete(t.path, recursive = t.isDirectory).isSuccess) okCount++
+                }
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(this@MainActivity, "$okCount / ${targets.size} 件削除しました", Toast.LENGTH_SHORT).show()
+                    setSelectionMode(false)
+                    loadDirectory(currentPath)
+                }
+            }
+        }
+        if (!AppPreferences.confirmBeforeDelete) { performDelete(); return }
         MaterialAlertDialogBuilder(this)
             .setTitle("削除確認")
             .setMessage("$count 件を削除しますか?")
-            .setPositiveButton("削除") { _, _ ->
-                val targets = currentEntries.filter { selectedPaths.contains(it.path) }
-                lifecycleScope.launch(Dispatchers.IO) {
-                    val fs = PrivilegedFileSystem(ShellManager.current(), runAsPackage)
-                    var okCount = 0
-                    for (t in targets) {
-                        if (fs.delete(t.path, recursive = t.isDirectory).isSuccess) okCount++
-                    }
-                    withContext(Dispatchers.Main) {
-                        Toast.makeText(this@MainActivity, "$okCount / ${targets.size} 件削除しました", Toast.LENGTH_SHORT).show()
-                        setSelectionMode(false)
-                        loadDirectory(currentPath)
-                    }
-                }
-            }
+            .setPositiveButton("削除") { _, _ -> performDelete() }
             .setNegativeButton("キャンセル", null)
             .show()
     }
@@ -826,19 +850,21 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun confirmDelete(entry: FileEntry) {
+        val performDelete: () -> Unit = {
+            lifecycleScope.launch(Dispatchers.IO) {
+                val fs = PrivilegedFileSystem(ShellManager.current(), runAsPackage)
+                val result = fs.delete(entry.path, recursive = entry.isDirectory)
+                withContext(Dispatchers.Main) {
+                    result.onSuccess { loadDirectory(currentPath) }
+                        .onFailure { Toast.makeText(this@MainActivity, it.message, Toast.LENGTH_LONG).show() }
+                }
+            }
+        }
+        if (!AppPreferences.confirmBeforeDelete) { performDelete(); return }
         MaterialAlertDialogBuilder(this)
             .setTitle("削除確認")
             .setMessage("${entry.name} を削除しますか?")
-            .setPositiveButton("削除") { _, _ ->
-                lifecycleScope.launch(Dispatchers.IO) {
-                    val fs = PrivilegedFileSystem(ShellManager.current(), runAsPackage)
-                    val result = fs.delete(entry.path, recursive = entry.isDirectory)
-                    withContext(Dispatchers.Main) {
-                        result.onSuccess { loadDirectory(currentPath) }
-                            .onFailure { Toast.makeText(this@MainActivity, it.message, Toast.LENGTH_LONG).show() }
-                    }
-                }
-            }
+            .setPositiveButton("削除") { _, _ -> performDelete() }
             .setNegativeButton("キャンセル", null)
             .show()
     }
