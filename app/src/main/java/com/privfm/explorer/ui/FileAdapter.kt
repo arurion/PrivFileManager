@@ -3,6 +3,7 @@ package com.privfm.explorer.ui
 
 import android.view.LayoutInflater
 import android.view.ViewGroup
+import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.RecyclerView
 import com.privfm.explorer.R
 import com.privfm.explorer.databinding.ItemFileBinding
@@ -44,10 +45,17 @@ class FileAdapter(
             holder.binding.iconView.setImageResource(R.drawable.ic_arrow_upward)
             holder.binding.nameView.text = holder.itemView.context.getString(R.string.up_directory)
             holder.binding.metaView.text = ""
-            holder.binding.selectCheckbox.visibility = android.view.View.GONE
-            holder.binding.selectCheckbox.setOnCheckedChangeListener(null)
+            holder.itemView.setBackgroundColor(android.graphics.Color.TRANSPARENT)
+            // ".."行はタップすると常に上のディレクトリへ移動する(選択モード中は
+            // MainActivity側で選択を解除してから移動するため、ここでは常にonClickを呼ぶ)。
+            // 選択できてしまう見た目上の不具合を避けるため、アイコン専用の選択トグルは設定しない。
             holder.itemView.setOnClickListener { onClick(entry) }
             holder.itemView.setOnLongClickListener { true }
+            // RecyclerViewのビュー使い回しにより、直前までこのViewが通常のファイル行として
+            // バインドされていた場合、アイコンに選択トグル用のクリックリスナーが
+            // 残ったままになり、矢印アイコンが「選択できてしまう」ように見える不具合があった。
+            // 明示的にnullへ差し替え、上の行(itemView)のクリックへ処理を集約する。
+            holder.binding.iconView.setOnClickListener(null)
             return
         }
 
@@ -73,10 +81,15 @@ class FileAdapter(
         holder.binding.metaView.text = "${entry.permissions} ${entry.owner}:${entry.group}$sizeLabel"
 
         val selectionMode = isSelectionMode()
-        holder.binding.selectCheckbox.visibility = if (selectionMode) android.view.View.VISIBLE else android.view.View.GONE
-        holder.binding.selectCheckbox.setOnCheckedChangeListener(null)
-        holder.binding.selectCheckbox.isChecked = isSelected(entry)
-        holder.binding.selectCheckbox.setOnCheckedChangeListener { _, _ -> onToggleSelect(entry) }
+        val selected = selectionMode && isSelected(entry)
+        // チェックボックスの表示/非表示でレイアウト幅が変わり、選択モードに入る/出る
+        // たびに一覧全体がガタつく問題があったため撤去し、行の背景色だけで選択状態を
+        // 表現する方式にした(色は薄いアクセント色。チラつきの原因になっていた
+        // アイコン脇のチェックボックス領域そのものが無くなり、レイアウトが安定する)。
+        holder.itemView.setBackgroundColor(
+            if (selected) ContextCompat.getColor(holder.itemView.context, R.color.state_selected)
+            else android.graphics.Color.TRANSPARENT
+        )
 
         holder.itemView.setOnClickListener {
             if (selectionMode) onToggleSelect(entry) else onClick(entry)

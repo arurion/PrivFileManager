@@ -48,6 +48,30 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+
+            <!-- Fossify File Manager等の他OSSファイルマネージャーと同じ方式(実際のソースで確認済み):
+                 独自のDocumentsProvider(SAFの左メニュー)は実装せず、アプリ自身をGET_CONTENT/PICK/
+                 CREATE_DOCUMENTのハンドラとして登録する。こうすることで「アプリを選択」の
+                 チューザーに本アプリが並び、選んだ場合は本アプリ自身の(Shizuku/Root/run-as対応の)
+                 通常のブラウザ画面がそのまま「選択モード」で開く。 -->
+            <intent-filter>
+                <action android:name="android.intent.action.GET_CONTENT" />
+                <category android:name="android.intent.category.OPENABLE" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="*/*" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.PICK" />
+                <category android:name="android.intent.category.OPENABLE" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="*/*" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.CREATE_DOCUMENT" />
+                <category android:name="android.intent.category.OPENABLE" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="*/*" />
+            </intent-filter>
         </activity>
 
         <activity
@@ -92,19 +116,6 @@
             <meta-data
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths" />
-        </provider>
-
-        <!-- SAF(Storage Access Framework)対応: 他アプリのファイル選択ダイアログ(システムの
-             DocumentsUI)の左メニューに本アプリが表示されるようにする -->
-        <provider
-            android:name=".documents.PrivFmDocumentsProvider"
-            android:authorities="${applicationId}.documents"
-            android:exported="true"
-            android:grantUriPermissions="true"
-            android:permission="android.permission.MANAGE_DOCUMENTS">
-            <intent-filter>
-                <action android:name="android.content.action.DOCUMENTS_PROVIDER" />
-            </intent-filter>
         </provider>
 
     </application>

@@ -8,7 +8,9 @@ package com.privfm.explorer.fs
 enum class SortMode(val label: String) {
     NAME("名前"),
     SIZE("サイズ"),
-    TYPE("種類")
+    TYPE("種類"),
+    DATE_MODIFIED("更新日時"),
+    OWNER("所有者")
 }
 
 /**
@@ -49,6 +51,8 @@ fun sortEntries(entries: List<FileEntry>, mode: SortMode, ascending: Boolean = t
         SortMode.NAME -> Comparator { x, y -> NaturalOrderComparator.compare(x.name.lowercase(), y.name.lowercase()) }
         SortMode.SIZE -> compareBy { it.sizeBytes }
         SortMode.TYPE -> compareBy { it.name.substringAfterLast('.', "").lowercase() }
+        SortMode.DATE_MODIFIED -> compareBy { it.lastModifiedMillis }
+        SortMode.OWNER -> compareBy { it.owner.lowercase() }
     }
     val dirFirst = compareByDescending<FileEntry> { it.isDirectory }
     val finalComparator = if (ascending) dirFirst.thenComparing(comparator) else dirFirst.thenComparing(comparator.reversed())

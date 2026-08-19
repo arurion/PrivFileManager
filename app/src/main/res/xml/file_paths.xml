@@ -2,4 +2,13 @@
 <paths xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- 外部アプリへ「開く」ために一時的にコピーしたファイルの置き場所 -->
     <cache-path name="open_with" path="open_with/" />
+
+    <!-- ACTION_CREATE_DOCUMENT(他アプリからの「名前を付けて保存」)で、
+         実ファイルへの直接の書き戻しを許可するための公開範囲。
+         Fossify File Manager等、他の主要なOSSファイルマネージャーの
+         provider_paths.xmlと同じ構成(external-path + root-path)を採用した。
+         個々のURIはgrantUriPermissionsで都度許可される範囲に限られるため、
+         パス自体を広く宣言しても即座に全ファイルが露出するわけではない。 -->
+    <external-path name="external_files" path="." />
+    <root-path name="external_files" path="/" />
 </paths>

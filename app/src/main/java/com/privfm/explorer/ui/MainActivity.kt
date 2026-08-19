@@ -121,6 +121,15 @@ class MainActivity : AppCompatActivity() {
             ?: if (runAsPackage == null && rootPath == "/") "/storage/emulated/0" else rootPath
         supportActionBar?.title = intent.getStringExtra(EXTRA_TITLE) ?: getString(R.string.app_name)
 
+        // 他アプリからGET_CONTENT/PICK/CREATE_DOCUMENTで呼び出された場合は「選択モード」になる。
+        // Fossify File Manager等の実装(独自のDocumentsProviderではなく、アプリ自身をこれらの
+        // intent-filterで受ける方式)を参考にした。詳細はNOTICE.mdを参照。
+        if (isPickMode) {
+            supportActionBar?.subtitle = "ファイルを選択してください"
+        } else if (isCreateDocumentMode) {
+            supportActionBar?.subtitle = "保存先のフォルダを選んで下さい"
+        }
+
         Shizuku.addRequestPermissionResultListener(shizukuPermListener)
 
         adapter = FileAdapter(
@@ -134,11 +143,23 @@ class MainActivity : AppCompatActivity() {
         binding.fileListView.layoutManager = LinearLayoutManager(this)
         binding.fileListView.adapter = adapter
 
-        binding.fabCreate.setOnClickListener { showCreateChoiceMenu(it) }
+        binding.fabCreate.setOnClickListener {
+            if (isCreateDocumentMode) createDocumentAndReturn() else showCreateChoiceMenu(it)
+        }
 
         refreshStatusBar()
         if (runAsPackage == null) maybeRequestAllFilesAccess()
         loadDirectory(currentPath)
+    }
+
+    /** GET_CONTENT/PICK: ファイルをタップしたら開かず、呼び出し元アプリへ選択結果を返す */
+    private val isPickMode: Boolean by lazy {
+        intent.action == Intent.ACTION_GET_CONTENT || intent.action == Intent.ACTION_PICK
+    }
+
+    /** CREATE_DOCUMENT: 「名前を付けて保存」。フォルダを選んでFABから保存する */
+    private val isCreateDocumentMode: Boolean by lazy {
+        intent.action == Intent.ACTION_CREATE_DOCUMENT
     }
 
     private fun maybeRequestAllFilesAccess() {
@@ -209,7 +230,7 @@ class MainActivity : AppCompatActivity() {
                 }
             })
         } else {
-            supportActionBar?.title = "${selectedPaths.size}件選択中"
+            supportActionBar?.title = "${selectedPaths.size}件"
         }
         return true
     }
@@ -245,16 +266,14 @@ class MainActivity : AppCompatActivity() {
             R.id.action_new_file -> { showCreateDialog(isDirectory = false); true }
             R.id.action_paste -> { pasteClipboard(); true }
             R.id.action_selection_mode -> { setSelectionMode(true); true }
-            R.id.action_select_all -> {
-                selectedPaths.clear()
-                selectedPaths.addAll(currentEntries.map { it.path })
-                invalidateOptionsMenu(); adapter.notifyDataSetChanged(); true
-            }
+            R.id.action_select_all -> { selectAll(); true }
+            R.id.action_invert_selection -> { invertSelection(); true }
             R.id.action_copy_selected -> { copySelectedToClipboard(ClipboardHolder.Mode.COPY); true }
             R.id.action_cut_selected -> { copySelectedToClipboard(ClipboardHolder.Mode.CUT); true }
             R.id.action_delete_selected -> { confirmDeleteSelected(); true }
             R.id.action_compress_selected -> { compressSelected(); true }
             R.id.action_exit_selection -> { setSelectionMode(false); true }
+            R.id.action_selection_more -> { showSelectionMoreMenu(); true }
             android.R.id.home -> { navigateUp(); true }
             else -> super.onOptionsItemSelected(item)
         }
@@ -557,21 +576,74 @@ class MainActivity : AppCompatActivity() {
 
     // ---- 複数選択・クリップボード・圧縮 ----
 
+    /**
+     * 「コピー/切り取り/削除/全選択/反転/圧縮/キャンセル」を全てツールバーの
+     * 文字ラベルで並べると窮屈になっていたため、削除だけをアイコンで常時表示し、
+     * 残りは「その他(⋮)」から確認できるメニュー(ダイアログ/ボトムシート)にまとめた。
+     */
+    private fun showSelectionMoreMenu() {
+        val options = listOf(
+            getString(R.string.action_select_all),
+            getString(R.string.action_invert_selection),
+            getString(R.string.action_copy),
+            getString(R.string.action_cut),
+            getString(R.string.action_compress),
+        )
+        showActionMenu("${selectedPaths.size}件選択中", options) { which ->
+            when (which) {
+                0 -> selectAll()
+                1 -> invertSelection()
+                2 -> copySelectedToClipboard(ClipboardHolder.Mode.COPY)
+                3 -> copySelectedToClipboard(ClipboardHolder.Mode.CUT)
+                4 -> compressSelected()
+            }
+        }
+    }
+
+    private fun selectableEntries(): List<FileEntry> = currentEntries.filter { !it.isParentEntry }
+
+    private fun selectAll() {
+        selectedPaths.clear()
+        selectedPaths.addAll(selectableEntries().map { it.path })
+        if (selectedPaths.isEmpty()) { setSelectionMode(false); return }
+        supportActionBar?.title = "${selectedPaths.size}件"
+        adapter.notifyDataSetChanged()
+    }
+
+    private fun invertSelection() {
+        val all = selectableEntries().map { it.path }
+        val inverted = all.filterNot { selectedPaths.contains(it) }
+        selectedPaths.clear()
+        selectedPaths.addAll(inverted)
+        if (selectedPaths.isEmpty()) { setSelectionMode(false); return }
+        supportActionBar?.title = "${selectedPaths.size}件"
+        adapter.notifyDataSetChanged()
+    }
+
     private fun setSelectionMode(enabled: Boolean) {
         selectionMode = enabled
         if (!enabled) selectedPaths.clear()
         invalidateOptionsMenu()
         adapter.notifyDataSetChanged()
-        supportActionBar?.title = if (enabled) "${selectedPaths.size}件選択中" else (intent.getStringExtra(EXTRA_TITLE) ?: getString(R.string.app_name))
+        // 以前は "5件選択中" のような長い文言をタイトルに詰め込んでいたため、
+        // 戻る矢印やメニューアイコンと合わせて表示スペースが狭く文字が潰れていた。
+        // 選択モードであること自体はナビゲーションアイコンを「閉じる(×)」に
+        // 差し替えることで示し、タイトルは短い件数表示のみにする。
+        supportActionBar?.setHomeAsUpIndicator(if (enabled) R.drawable.ic_close else null)
+        supportActionBar?.title = if (enabled) "${selectedPaths.size}件" else (intent.getStringExtra(EXTRA_TITLE) ?: getString(R.string.app_name))
     }
 
     private fun toggleSelection(entry: FileEntry) {
         if (entry.isParentEntry) return
-        if (entry.isParentEntry) return
         if (!selectionMode) setSelectionMode(true)
         if (selectedPaths.contains(entry.path)) selectedPaths.remove(entry.path) else selectedPaths.add(entry.path)
-        supportActionBar?.title = "${selectedPaths.size}件選択中"
-        adapter.notifyDataSetChanged()
+        if (selectedPaths.isEmpty()) {
+            // 選択数が0になったら、選択モード表示だけが空虚に残らないよう自動で解除する
+            setSelectionMode(false)
+        } else {
+            supportActionBar?.title = "${selectedPaths.size}件"
+            adapter.notifyDataSetChanged()
+        }
     }
 
     private fun copySelectedToClipboard(mode: ClipboardHolder.Mode) {
@@ -723,11 +795,17 @@ class MainActivity : AppCompatActivity() {
     // ---- ファイルを開く ----
 
     private fun onEntryClicked(entry: FileEntry) {
-        if (entry.isParentEntry) { loadDirectory(entry.path); return }
+        if (entry.isParentEntry) {
+            // 矢印ボタン(navigateUp)と挙動を統一: 選択中なら解除した上でそのまま移動する
+            if (selectionMode) setSelectionMode(false)
+            loadDirectory(entry.path)
+            return
+        }
         if (entry.isDirectory) {
             loadDirectory(entry.path)
             return
         }
+        if (isPickMode) { pickedPath(entry); return }
         // 以前は拡張子から自動判定してテキストエディタ/外部アプリを問答無用で開いていたが、
         // 判定が外れると意図しないアプリが開いてしまい違和感があるため、
         // 常に「開き方」を確認するメニュー(旧・長押しメニューの一項目)を出すようにした。
@@ -797,6 +875,93 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }
+    }
+
+    /**
+     * GET_CONTENT/PICKで呼び出された場合の「ファイルを選択した」処理。
+     * Fossify File Manager等と同じ方式で、選択したファイルを直接開かず、
+     * content:// URIを結果として呼び出し元アプリへ返す。
+     * 特権経路(Shizuku/Root/run-as)配下のファイルは、呼び出し元アプリから
+     * 直接アクセスできないため、一旦アプリのキャッシュへコピーしてから共有する
+     * (「外部アプリで開く」と同じ仕組みを再利用)。
+     */
+    private fun pickedPath(entry: FileEntry) {
+        lifecycleScope.launch(Dispatchers.IO) {
+            val fs = PrivilegedFileSystem(ShellManager.current(), runAsPackage)
+            val size = fs.fileSize(entry.path).getOrNull()
+            if (size != null && size > MAX_EXTERNAL_OPEN_BYTES) {
+                withContext(Dispatchers.Main) { showFileTooLargeDialog(entry.name, size) }
+                return@launch
+            }
+            val result = fs.readFile(entry.path)
+            withContext(Dispatchers.Main) {
+                result.onSuccess { bytes ->
+                    try {
+                        val cacheFile = ExternalOpener.cacheFile(this@MainActivity, bytes, entry.name)
+                        val uri = ExternalOpener.uriForCacheFile(this@MainActivity, cacheFile)
+                        val resultIntent = Intent().apply {
+                            data = uri
+                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                        }
+                        setResult(RESULT_OK, resultIntent)
+                        finish()
+                    } catch (e: Exception) {
+                        Toast.makeText(this@MainActivity, "選択に失敗しました: ${e.message}", Toast.LENGTH_LONG).show()
+                    }
+                }.onFailure {
+                    Toast.makeText(this@MainActivity, "読み込み失敗: ${it.message}", Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+    }
+
+    /**
+     * CREATE_DOCUMENTで呼び出された場合の「名前を付けて保存」処理。
+     * 呼び出し元アプリが以後この場所へ直接書き込めるよう、キャッシュ経由ではなく
+     * 実ファイルへ直接のcontent:// URIを発行する(file_paths.xmlのroot-path設定により可能)。
+     * このため、privileged専用領域(Shizuku/Root配下のみアクセス可能な場所)では
+     * 通常のFileオブジェクトから直接アクセスできず失敗するため、
+     * 通常アクセス可能な保存先(外部ストレージ等)でのみ機能する。
+     */
+    private fun createDocumentAndReturn() {
+        val suggested = intent.getStringExtra(Intent.EXTRA_TITLE) ?: "new_file.txt"
+        val input = android.widget.EditText(this).apply { setText(suggested) }
+        MaterialAlertDialogBuilder(this)
+            .setTitle("保存するファイル名")
+            .setView(input)
+            .setPositiveButton("保存") { _, _ ->
+                val name = input.text.toString().trim()
+                if (name.isEmpty()) return@setPositiveButton
+                val targetPath = "${currentPath.trimEnd('/')}/$name"
+                lifecycleScope.launch(Dispatchers.IO) {
+                    val fs = PrivilegedFileSystem(ShellManager.current(), runAsPackage)
+                    val result = fs.writeFile(targetPath, ByteArray(0))
+                    withContext(Dispatchers.Main) {
+                        result.onSuccess {
+                            try {
+                                val file = java.io.File(targetPath)
+                                val uri = ExternalOpener.uriForCacheFile(this@MainActivity, file)
+                                val resultIntent = Intent().apply {
+                                    data = uri
+                                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+                                }
+                                setResult(RESULT_OK, resultIntent)
+                                finish()
+                            } catch (e: Exception) {
+                                Toast.makeText(
+                                    this@MainActivity,
+                                    "この場所には保存できません(特権専用領域の可能性があります): ${e.message}",
+                                    Toast.LENGTH_LONG
+                                ).show()
+                            }
+                        }.onFailure {
+                            Toast.makeText(this@MainActivity, "保存に失敗しました: ${it.message}", Toast.LENGTH_LONG).show()
+                        }
+                    }
+                }
+            }
+            .setNegativeButton("キャンセル", null)
+            .show()
     }
 
     private fun showFileTooLargeDialog(name: String, size: Long) {
@@ -990,8 +1155,13 @@ class MainActivity : AppCompatActivity() {
      * (debuggableアプリのデータブラウズ時は特にアプリのデータ領域より上を見せる意味がない)ため、
      * 物理・ジェスチャーの「戻る」と同じ挙動(呼び出し元のアプリ一覧などへ戻る)に統一する。
      * 以前はルートで何も起きない「死んだボタン」になっていた。
+     *
+     * 選択中にこのボタンを押した場合、選択内容と移動先のディレクトリが食い違ったまま
+     * 残ってしまう事故を防ぐため、選択を解除した上で移動を続行する
+     * (選択解除だけでその場に留まる仕様だと、もう一度押さないと移動できず不便なため)。
      */
     private fun navigateUp() {
+        if (selectionMode) setSelectionMode(false)
         val parent = parentDirectoryPath()
         if (parent != null) loadDirectory(parent) else onBackPressed()
     }

@@ -58,6 +58,7 @@ class PrivilegedFileSystem(
         val owner = g[3]
         val group = g[4]
         val size = g[5]
+        val dateLabel = g[6]
         val rawName = g[7]
         val isDir = type == "d"
         val isLink = type == "l"
@@ -71,8 +72,37 @@ class PrivilegedFileSystem(
             sizeBytes = size.toLongOrNull() ?: 0L,
             permissions = type + perms,
             owner = owner,
-            group = group
+            group = group,
+            lastModifiedMillis = parseLsDate(dateLabel)
         )
+    }
+
+    /**
+     * `ls -la`の日時欄(例: "Aug 15 12:34" や "Aug 15  2025")をベストエフォートで
+     * エポックミリ秒に変換する。端末のlsフレーバーによって書式が異なるため、
+     * よくある2パターンだけ試し、どちらも失敗したら0を返す(呼び出し側は
+     * それをソートキーとしてのみ使うため、失敗しても表示自体は壊れない)。
+     */
+    private fun parseLsDate(label: String): Long {
+        val patterns = listOf("MMM d HH:mm", "MMM d yyyy", "MMM  d HH:mm", "MMM  d yyyy")
+        for (pattern in patterns) {
+            try {
+                val sdf = java.text.SimpleDateFormat(pattern, java.util.Locale.ENGLISH)
+                sdf.isLenient = true
+                val parsed = sdf.parse(label.trim().replace(Regex("\\s+"), " ")) ?: continue
+                val cal = java.util.Calendar.getInstance()
+                cal.time = parsed
+                if (!pattern.contains("yyyy")) {
+                    // 年が省略される書式(直近1年以内のファイル)は現在の年を仮定する
+                    val nowYear = java.util.Calendar.getInstance().get(java.util.Calendar.YEAR)
+                    cal.set(java.util.Calendar.YEAR, nowYear)
+                }
+                return cal.timeInMillis
+            } catch (e: Exception) {
+                continue
+            }
+        }
+        return 0L
     }
 
     /** ファイルサイズをバイト単位で取得する(大容量ファイルを丸ごとメモリに載せる前の事前チェック用) */

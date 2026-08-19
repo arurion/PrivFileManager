@@ -10,14 +10,23 @@
   - パンくずナビゲーション(タップで任意の親ディレクトリへ直接移動)
   - ソートメニューの構成(名前/サイズ/種類、昇順・降順の切り替え)
   - mimeタイプに応じたアイコン表示の考え方(絵文字ではなくベクター画像で種別を示す)
-  - `android.provider.DocumentsProvider`の標準API構成(queryRoots/queryChildDocuments等)。
-    実装コード自体はAndroid SDK公式ドキュメント・APIシグネチャに基づく独自実装であり、
-    AOSPの`ExternalStorageProvider`等のソースコードを参照・移植したものではない
 
-- **Amaze File Manager / Fossify File Manager等の一般的なOSSファイルマネージャー**
-  - SAF(Storage Access Framework)対応: `DocumentsProvider`を実装して、他アプリの
-    ファイル選択ダイアログの左メニューに自身を表示させる、という設計方針そのものを参考にした
-    (主要なOSSファイルマネージャーの多くが同様の対応をしている)。実装コードは独自
+- **Fossify File Manager** (FossifyOrg, GPL-3.0-or-later, https://github.com/FossifyOrg/File-Manager)
+  - 「アプリを選択」チューザーに本アプリを表示する方式について、実際のソースコード
+    (`AndroidManifest.xml`のintent-filter、`MainActivity.kt`の`pickedPath`/
+    `createDocumentConfirmed`関数)を確認した上で採用した。以前の版では
+    独自に`android.content.DocumentsProvider`を実装し、システムのDocumentsUI(SAFの
+    「内部ストレージ」等と並ぶ左メニュー)に登録する方式を取っていたが、これは
+    既にシステム標準で表示されている「内部ストレージ」の中身をただ複製して
+    表示するだけの、実用性の低い実装だった。Fossifyの実装を確認した結果、
+    主要なOSSファイルマネージャーは代わりに**アプリ自身を`ACTION_GET_CONTENT` /
+    `ACTION_PICK` / `ACTION_CREATE_DOCUMENT`のハンドラとしてIntentシステムに
+    登録する**方式を採っており(独自のDocumentsProviderではない)、これにより
+    アプリ自身の(Shizuku/Root/run-as対応の)通常のブラウザ画面がそのまま
+    「選択モード」として機能する。この設計方針を採用し、実装コード自体は
+    本プロジェクトのアーキテクチャ(特権シェル経由のファイルアクセス)に
+    合わせて独自に書き下ろした(Fossifyのソースコードを逐語的にコピー・移植した
+    ものではない)。
 
 - **Amaze File Manager** (TeamAmaze, GPL-3.0-or-later)
   - Copyright (C) 2014- Arpit Khurana, Vishal Nehra, Emmanuel Messulam, Raymond Lai, Vishnu Sanal T and Contributors
