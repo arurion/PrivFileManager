@@ -2,6 +2,19 @@
 
 このプロジェクトのバージョンは [Semantic Versioning](https://semver.org/lang/ja/) に従います。
 
+## [5.3.1] - 2026-08-16
+
+### Fixed
+- **実際のGitHub Actionsビルドで発覚したコンパイルエラーを修正**。5.2.0で選択モードの
+  ツールバーをアイコン+メニュー方式に変更した際、`menu_selection.xml`から削除した
+  `action_select_all`等のメニュー項目IDへの参照が`MainActivity.kt`側に残ったままになっており、
+  `Unresolved reference`エラーでビルドが失敗していた。該当する分岐を削除し、
+  再発防止のため全Activityファイル×全リソース種別(string/drawable/layout/menu/
+  mipmap/color/id)の参照整合性を機械的に突合検証した
+- `setHomeAsUpIndicator(if (...) R.drawable.xxx else null)`が、Int版とDrawable版の
+  オーバーロード解決で`Type mismatch: inferred type is Int? but Int was expected`
+  エラーになっていた不具合を修正。if/elseで明示的に呼び分けるよう変更
+
 ## [5.3.0] - 2026-08-16
 
 ### Fixed

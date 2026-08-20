@@ -95,8 +95,8 @@ Gradle Wrapperのバイナリはリポジトリに含めず、`gradle/actions/se
 タグをpushするか、GitHub UIでReleaseを作成すると、ビルドされたAPKが自動的にそのReleaseへ添付されます。
 
 ```bash
-git tag v5.3.0
-git push origin v5.3.0
+git tag v5.3.1
+git push origin v5.3.1
 ```
 
 通常のブランチpushやPull Requestではこのステップはスキップされ、Releaseページには影響しません。

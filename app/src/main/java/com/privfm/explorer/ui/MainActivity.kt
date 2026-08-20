@@ -266,13 +266,7 @@ class MainActivity : AppCompatActivity() {
             R.id.action_new_file -> { showCreateDialog(isDirectory = false); true }
             R.id.action_paste -> { pasteClipboard(); true }
             R.id.action_selection_mode -> { setSelectionMode(true); true }
-            R.id.action_select_all -> { selectAll(); true }
-            R.id.action_invert_selection -> { invertSelection(); true }
-            R.id.action_copy_selected -> { copySelectedToClipboard(ClipboardHolder.Mode.COPY); true }
-            R.id.action_cut_selected -> { copySelectedToClipboard(ClipboardHolder.Mode.CUT); true }
             R.id.action_delete_selected -> { confirmDeleteSelected(); true }
-            R.id.action_compress_selected -> { compressSelected(); true }
-            R.id.action_exit_selection -> { setSelectionMode(false); true }
             R.id.action_selection_more -> { showSelectionMoreMenu(); true }
             android.R.id.home -> { navigateUp(); true }
             else -> super.onOptionsItemSelected(item)
@@ -629,7 +623,11 @@ class MainActivity : AppCompatActivity() {
         // 戻る矢印やメニューアイコンと合わせて表示スペースが狭く文字が潰れていた。
         // 選択モードであること自体はナビゲーションアイコンを「閉じる(×)」に
         // 差し替えることで示し、タイトルは短い件数表示のみにする。
-        supportActionBar?.setHomeAsUpIndicator(if (enabled) R.drawable.ic_close else null)
+        if (enabled) {
+            supportActionBar?.setHomeAsUpIndicator(R.drawable.ic_close)
+        } else {
+            supportActionBar?.setHomeAsUpIndicator(null)
+        }
         supportActionBar?.title = if (enabled) "${selectedPaths.size}件" else (intent.getStringExtra(EXTRA_TITLE) ?: getString(R.string.app_name))
     }
 

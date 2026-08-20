@@ -24,8 +24,8 @@ android {
         applicationId = "com.privfm.explorer"
         minSdk = 26
         targetSdk = 34
-        versionCode = 8
-        versionName = "5.3.0"
+        versionCode = 9
+        versionName = "5.3.1"
     }
 
     signingConfigs {
