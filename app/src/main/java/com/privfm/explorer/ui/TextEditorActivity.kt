@@ -148,9 +148,16 @@ class TextEditorActivity : AppCompatActivity() {
     /**
      * 巨大なファイルをそのままEditTextへ丸ごと読み込むと、メモリ不足でアプリが
      * 落ちる問題があった(shell経由でbase64全文をKotlin文字列として保持するため、
-     * 数百MB〜のファイルで容易にOutOfMemoryが発生していた)。
-     * そのため事前にサイズを確認し、閾値を超える場合は「先頭のみのプレビュー」として
-     * 開き、保存を無効化する(中途半端な内容で元ファイルを上書きしてしまう事故を防ぐ)。
+     * 数百MB〜のファイルで容易にOutOfMemoryが発生していた)。加えて、たとえOOMを
+     * 免れても、Android標準のEditText/TextViewは大量の文字列を保持すると
+     * (Spannable/レイアウト計算のコストにより)著しく重くなりフリーズしたように
+     * 見える問題がある。
+     *
+     * Amaze File Managerの実ソース(ReadTextFileCallable.java)を確認したところ、
+     * `MAX_FILE_SIZE_CHARS = 50 * 1024`(50KB)を超える分は最初から読み込まず、
+     * 超過を検知した場合は保存不可ではなく**編集そのものを禁止(読み取り専用化)**し、
+     * 常時表示の警告バナーを出す設計だった。過去のOOMクラッシュ報告
+     * (Issue #2461)を受けての対応であり、同じ方針を採用した。
      */
     private fun loadFile() {
         binding.editorText.isEnabled = false
@@ -163,12 +170,8 @@ class TextEditorActivity : AppCompatActivity() {
                 val preview = fs.peekFile(path, maxBytes = MAX_FULL_LOAD_BYTES.toInt())
                 withContext(Dispatchers.Main) {
                     isPreviewOnly = true
-                    binding.editorText.isEnabled = true
                     preview.onSuccess { bytes ->
-                        val text = String(bytes, Charsets.UTF_8)
-                        binding.editorText.setText(
-                            "$text\n\n----- (${formatSize(size)} 中 先頭 ${formatSize(MAX_FULL_LOAD_BYTES)} のみ表示・保存不可) -----"
-                        )
+                        setPreviewText(bytes, size)
                         showPreviewOnlyNotice(size)
                     }.onFailure {
                         Toast.makeText(this@TextEditorActivity, "読み込み失敗: ${it.message}", Toast.LENGTH_LONG).show()
@@ -179,20 +182,35 @@ class TextEditorActivity : AppCompatActivity() {
 
             val result = fs.readTextFile(path)
             withContext(Dispatchers.Main) {
-                binding.editorText.isEnabled = true
-                result.onSuccess { binding.editorText.setText(it) }
-                    .onFailure { Toast.makeText(this@TextEditorActivity, "読み込み失敗: ${it.message}", Toast.LENGTH_LONG).show() }
+                try {
+                    result.onSuccess { binding.editorText.setText(it); binding.editorText.isEnabled = true }
+                        .onFailure { Toast.makeText(this@TextEditorActivity, "読み込み失敗: ${it.message}", Toast.LENGTH_LONG).show() }
+                } catch (e: OutOfMemoryError) {
+                    // 上記のサイズ事前チェックをすり抜けた場合の最終防御線
+                    // (Amazeも同様にOutOfMemoryErrorを明示的にcatchしている)。
+                    Toast.makeText(this@TextEditorActivity, "メモリ不足のため開けませんでした(ファイルが大きすぎます)", Toast.LENGTH_LONG).show()
+                    finish()
+                }
             }
         }
+    }
+
+    /** プレビューモード: 編集は一切できない読み取り専用として表示する(保存操作自体をブロックするだけでは不十分なため) */
+    private fun setPreviewText(bytes: ByteArray, fullSize: Long) {
+        val text = String(bytes, Charsets.UTF_8)
+        binding.editorText.setText(
+            "$text\n\n----- (${formatSize(fullSize)} 中 先頭 ${formatSize(MAX_FULL_LOAD_BYTES)} のみ表示・読み取り専用) -----"
+        )
+        binding.editorText.isEnabled = false
+        binding.editorText.keyListener = null
     }
 
     private fun showPreviewOnlyNotice(fullSize: Long) {
         MaterialAlertDialogBuilder(this)
             .setTitle("大きなファイルです")
             .setMessage(
-                "このファイルは ${formatSize(fullSize)} あり、内部エディタで安全に扱える範囲を超えています。" +
-                    "先頭 ${formatSize(MAX_FULL_LOAD_BYTES)} のみをプレビュー表示しており、保存はできません。\n\n" +
-                    "編集する場合は「外部アプリで開く」をご利用ください。"
+                "このファイルは ${formatSize(fullSize)} あり、内部エディタで安全に扱える範囲(${formatSize(MAX_FULL_LOAD_BYTES)})を超えています。\n\n" +
+                    "先頭部分のみを読み取り専用で表示しています。編集する場合は「外部アプリで開く」をご利用ください。"
             )
             .setPositiveButton("OK", null)
             .show()
@@ -223,7 +241,14 @@ class TextEditorActivity : AppCompatActivity() {
         const val EXTRA_PATH = "extra_path"
         const val EXTRA_RUN_AS_PACKAGE = "extra_run_as_package"
 
-        /** これを超えるファイルは丸ごとメモリに載せず、先頭のみのプレビューにする(2MB) */
-        private const val MAX_FULL_LOAD_BYTES = 2L * 1024 * 1024
+        /**
+         * これを超えるファイルは丸ごとメモリに載せず、先頭のみの読み取り専用プレビューにする。
+         * Amaze File Managerの実ソース(ReadTextFileCallable.MAX_FILE_SIZE_CHARS)が
+         * 50 * 1024(50KB)を採用していたのを参考に、同じ値を採用した。
+         * 一見小さく感じる値だが、OOM回避だけでなくEditText自体のフリーズ回避
+         * (大量文字列に対するSpannable/レイアウト計算コスト)が主目的であるため、
+         * デバイスのメモリ量に関わらず一定の値にしている。
+         */
+        private const val MAX_FULL_LOAD_BYTES = 50L * 1024
     }
 }

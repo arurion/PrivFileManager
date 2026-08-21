@@ -54,8 +54,13 @@ class FileAdapter(
             // RecyclerViewのビュー使い回しにより、直前までこのViewが通常のファイル行として
             // バインドされていた場合、アイコンに選択トグル用のクリックリスナーが
             // 残ったままになり、矢印アイコンが「選択できてしまう」ように見える不具合があった。
-            // 明示的にnullへ差し替え、上の行(itemView)のクリックへ処理を集約する。
-            holder.binding.iconView.setOnClickListener(null)
+            // setOnClickListener(null)だけではisClickableがtrueのまま残ってしまい、
+            // アイコン部分がタッチを消費して下のitemViewまで届かなくなる
+            // (矢印を直接タップすると移動が反応しない不具合の原因だった)ため、
+            // isClickable/isFocusableも明示的にfalseへ戻す。
+            holder.binding.iconTapArea.setOnClickListener(null)
+            holder.binding.iconTapArea.isClickable = false
+            holder.binding.iconTapArea.isFocusable = false
             return
         }
 
@@ -98,7 +103,7 @@ class FileAdapter(
 
         // ほとんどのファイルマネージャーと同様、アイコン部分をタップすると
         // (選択モードでなくても)常に選択トグルとして機能する
-        holder.binding.iconView.setOnClickListener { onToggleSelect(entry) }
+        holder.binding.iconTapArea.setOnClickListener { onToggleSelect(entry) }
     }
 
     override fun getItemCount(): Int = items.size

@@ -5,21 +5,34 @@
     android:orientation="horizontal"
     android:gravity="center_vertical"
     android:foreground="?attr/selectableItemBackground"
-    android:padding="14dp">
+    android:minHeight="64dp">
 
-    <ImageView
-        android:id="@+id/iconView"
-        android:layout_width="28dp"
-        android:layout_height="28dp"
-        android:layout_marginEnd="14dp"
-        android:contentDescription="@null"
-        android:src="@drawable/ic_file" />
+    <!-- アイコン部分の選択トグルは、Amaze File Managerの実装(rowlayout.xml)を確認したところ、
+         アイコン画像そのもの(40dp)ではなく、それを囲む56dp幅×行の全高のコンテナ全体が
+         タップ領域になっていた。以前は44dp角のみだったため、それに合わせて拡大した。 -->
+    <FrameLayout
+        android:id="@+id/iconTapArea"
+        android:layout_width="56dp"
+        android:layout_height="match_parent"
+        android:background="?attr/selectableItemBackground">
+
+        <ImageView
+            android:id="@+id/iconView"
+            android:layout_width="28dp"
+            android:layout_height="28dp"
+            android:layout_gravity="center"
+            android:contentDescription="@null"
+            android:src="@drawable/ic_file" />
+
+    </FrameLayout>
 
     <LinearLayout
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_weight="1"
-        android:orientation="vertical">
+        android:orientation="vertical"
+        android:paddingVertical="14dp"
+        android:paddingEnd="14dp">
 
         <TextView
             android:id="@+id/nameView"

@@ -80,7 +80,7 @@ _準備中_
 - `MANAGE_EXTERNAL_STORAGE` は、Shizuku/Rootを使わない場合の通常ストレージアクセスに使用します
 - Shizuku/Root経由の操作は、対象アプリ・システムに対して強い権限で実行されます。
   信頼できる用途・対象にのみ使用してください
-- 本アプリは通信を外部サーバーへ送信しません(GitHubリポジトリの取り込み機能を使った場合を除く)
+- 本アプリは通信を外部サーバーへ送信しません(完全にオフラインで動作します)
 
 ## 開発者向け: ソースからビルドする
 
@@ -95,8 +95,8 @@ Gradle Wrapperのバイナリはリポジトリに含めず、`gradle/actions/se
 タグをpushするか、GitHub UIでReleaseを作成すると、ビルドされたAPKが自動的にそのReleaseへ添付されます。
 
 ```bash
-git tag v5.3.1
-git push origin v5.3.1
+git tag v5.3.4
+git push origin v5.3.4
 ```
 
 通常のブランチpushやPull Requestではこのステップはスキップされ、Releaseページには影響しません。

@@ -32,7 +32,17 @@
   - Copyright (C) 2014- Arpit Khurana, Vishal Nehra, Emmanuel Messulam, Raymond Lai, Vishnu Sanal T and Contributors
   - https://github.com/TeamAmaze/AmazeFileManager
   - 参考にした点: 複数選択モード(チェックボックス・全選択・まとめて削除/コピー/切り取り)、
-    内部クリップボードによるコピー&ペースト操作フロー、ファイル一覧のソートUI構成
+    内部クリップボードによるコピー&ペースト操作フロー、ファイル一覧のソートUI構成、
+    アイコンタップによる選択トグルのタップ領域設計(`rowlayout.xml`/`dimens.xml`を実際に
+    確認: アイコン画像自体は40dpだが、タップ領域はそれを囲む56dp幅×行の全高の
+    コンテナ全体になっており、単純にアイコン画像サイズをそのままタップ領域にすると
+    Material Designの推奨最小タッチターゲットを満たしていても実用上まだ狭い、という
+    実例として採用した)
+  - テキストエディタの大容量ファイル対策(`ReadTextFileCallable.java`の
+    `MAX_FILE_SIZE_CHARS = 50 * 1024`を実際に確認して採用): 閾値を超える分は
+    最初から読み込まず、超過を検知した場合は保存不可ではなく編集そのものを
+    読み取り専用化する設計。過去の実際のOOMクラッシュ報告(Issue #2461)を
+    踏まえた対応であることも確認した上で参考にした
   - **本プロジェクトのコードは、Amaze File Managerのソースコードを逐語的にコピー・移植した
     ものではありません。** 実装は独自に(Kotlin/Shizuku/run-as前提のアーキテクチャに合わせて)
     行っています。あくまで「一般的なAndroidファイルマネージャーとして期待される機能・UI構成」
