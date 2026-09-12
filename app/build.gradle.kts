@@ -24,8 +24,8 @@ android {
         applicationId = "com.privfm.explorer"
         minSdk = 26
         targetSdk = 34
-        versionCode = 12
-        versionName = "5.3.4"
+        versionCode = 14
+        versionName = "5.4.1"
     }
 
     signingConfigs {
@@ -71,6 +71,7 @@ dependencies {
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.appcompat:appcompat:1.7.0")
     implementation("com.google.android.material:material:1.12.0")
+    implementation("androidx.drawerlayout:drawerlayout:1.2.0")
     implementation("androidx.constraintlayout:constraintlayout:2.1.4")
     implementation("androidx.recyclerview:recyclerview:1.3.2")
     implementation("androidx.documentfile:documentfile:1.0.1")
@@ -89,6 +90,10 @@ dependencies {
     implementation("com.github.junrar:junrar:7.5.5")
     // commons-compressのXZ(.tar.xz)対応に必要
     implementation("org.tukaani:xz:1.9")
+
+    // ShizukuなしでもADB(ワイヤレスデバッグ)権限を得るための実装。
+    // App Manager(MuntashirAkon)が使っているものと同じライブラリ。ペアリング(TLS)にも対応。
+    implementation("com.github.MuntashirAkon:libadb-android:3.1.1")
 
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.2.1")

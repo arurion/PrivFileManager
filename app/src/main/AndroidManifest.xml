@@ -32,6 +32,10 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
 
+    <!-- Termux連携(RUN_COMMAND Intent)用。Termux本体側でallow-external-apps=trueの
+         設定と、この権限の許可(通常のランタイム権限と同様)がユーザー側で必要 -->
+    <uses-permission android:name="com.termux.permission.RUN_COMMAND" />
+
     <application
         android:name=".PrivFmApplication"
         android:allowBackup="false"

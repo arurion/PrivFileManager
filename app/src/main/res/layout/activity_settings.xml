@@ -75,6 +75,14 @@
             android:text="Rootを強制使用" />
 
         <RadioButton
+            android:id="@+id/modeAdb"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textColor="@color/text_primary"
+            android:buttonTint="@color/chrome_tint"
+            android:text="ADB(ワイヤレスデバッグ)を強制使用" />
+
+        <RadioButton
             android:id="@+id/modeNormal"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -83,6 +91,129 @@
             android:text="通常権限のみ" />
 
     </RadioGroup>
+
+    <LinearLayout
+        android:id="@+id/adbSettingsGroup"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:layout_marginTop="12dp"
+        android:visibility="gone">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Shizukuアプリ不要でADB(shell)権限を使う機能です。端末の「開発者向けオプション &gt; ワイヤレスデバッグ」を有効にし、以下の手順で設定してください。"
+            android:textSize="12sp"
+            android:textColor="@color/text_secondary"
+            android:layout_marginBottom="12dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="① ペア設定(初回のみ)"
+            android:textStyle="bold"
+            android:textColor="@color/text_primary"
+            android:layout_marginBottom="4dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="ワイヤレスデバッグ画面の「ペア設定コードによるデバイスのペア設定」を開き、表示されたIP・ポート・6桁のコードをここに入力してください。"
+            android:textSize="12sp"
+            android:textColor="@color/text_secondary"
+            android:layout_marginBottom="6dp" />
+
+        <EditText
+            android:id="@+id/adbPairHostInput"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="ペア設定用IPアドレス (例: 192.168.1.10)"
+            android:inputType="text"
+            android:textColor="@color/text_primary" />
+
+        <EditText
+            android:id="@+id/adbPairPortInput"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:hint="ペア設定用ポート番号"
+            android:inputType="number"
+            android:textColor="@color/text_primary" />
+
+        <EditText
+            android:id="@+id/adbPairCodeInput"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:hint="6桁のペア設定コード"
+            android:inputType="number"
+            android:textColor="@color/text_primary" />
+
+        <Button
+            android:id="@+id/adbPairButton"
+            style="@style/Widget.Material3.Button.TonalButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="ペア設定する" />
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:layout_marginVertical="16dp"
+            android:background="@color/surface_variant" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="② 接続"
+            android:textStyle="bold"
+            android:textColor="@color/text_primary"
+            android:layout_marginBottom="4dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="ペア設定完了後、ワイヤレスデバッグ画面の上部に表示されているIPアドレスとポート(ペア設定用とは別の番号)を入力してください。"
+            android:textSize="12sp"
+            android:textColor="@color/text_secondary"
+            android:layout_marginBottom="6dp" />
+
+        <EditText
+            android:id="@+id/adbHostInput"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="接続用IPアドレス (例: 192.168.1.10)"
+            android:inputType="text"
+            android:textColor="@color/text_primary" />
+
+        <EditText
+            android:id="@+id/adbPortInput"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:hint="接続用ポート番号"
+            android:inputType="number"
+            android:textColor="@color/text_primary" />
+
+        <Button
+            android:id="@+id/adbConnectTestButton"
+            style="@style/Widget.Material3.Button.TonalButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="接続テスト" />
+
+        <TextView
+            android:id="@+id/adbStatusView"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:textSize="12sp"
+            android:textColor="@color/text_secondary" />
+
+    </LinearLayout>
 
     <View
         android:layout_width="match_parent"

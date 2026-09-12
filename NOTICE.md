@@ -6,10 +6,35 @@
 
 ## 参考にした設計パターン
 
+- **App Manager** (MuntashirAkon, GPL-3.0-or-later, https://github.com/MuntashirAkon/AppManager)
+  - Shizukuアプリ不要でADB(ワイヤレスデバッグ)権限を得る仕組みについて、実際の
+    `AdbConnectionManager.java`のソースコードを確認した上で採用した。App Manager自身が
+    使っている[libadb-android](https://github.com/MuntashirAkon/libadb-android)
+    (同じくMuntashirAkon作、GPL-3.0-or-later/Apache-2.0のデュアルライセンス)を
+    本プロジェクトでも直接利用している(依存ライブラリとして。ソースコードの
+    移植ではない)。証明書生成部分のみ、App Manager独自の`sun.security.x509`
+    ベースのユーティリティではなく、Android標準の`AndroidKeyStore`を使う
+    独自実装に置き換えた
+  - dadb(mobile-dev-inc)も検討したが、Android 11+のペアリングコードによる
+    TLSペアリングを実装していないことが分かり(dadb本体のIssue #25で
+    議論中・未解決)、ペアリングまで実装されているlibadb-androidを採用した
+
+- **Termux** (https://github.com/termux/termux-app, GPL-3.0-or-later)
+  - 公式Wiki記載の`RUN_COMMAND` Intent方式(`com.termux.app.RunCommandService`への
+    `com.termux.RUN_COMMAND` Intent送信)をそのまま利用している。ソースコードの
+    参照・移植は行っていない(公開APIの利用のみ)
+
 - **AOSP DocumentsUI** (Apache License 2.0, Android Open Source Project)
   - パンくずナビゲーション(タップで任意の親ディレクトリへ直接移動)
   - ソートメニューの構成(名前/サイズ/種類、昇順・降順の切り替え)
   - mimeタイプに応じたアイコン表示の考え方(絵文字ではなくベクター画像で種別を示す)
+  - 戻るキーの優先順位(`SharedInputHandler.onBack()`を実際に確認):
+    ドロワーを閉じる → 検索をキャンセル → 選択解除 → ディレクトリを1つ上へ、
+    の順序をそのまま採用した
+  - 検索の展開状態復元(`SearchViewManager.restoreSearch()`を実際に確認):
+    UIが作り直される場面で、検索語が残っていれば検索バーを展開し直した上で
+    クエリを復元する、という設計を採用した(以前は検索語が残ったまま
+    検索バーだけ閉じた見た目になり、閉じる手段を失うバグの原因だった)
 
 - **Fossify File Manager** (FossifyOrg, GPL-3.0-or-later, https://github.com/FossifyOrg/File-Manager)
   - 「アプリを選択」チューザーに本アプリを表示する方式について、実際のソースコード
@@ -62,6 +87,7 @@
 | Apache Commons Compress (`org.apache.commons:commons-compress`) | Apache License 2.0 |
 | XZ for Java (`org.tukaani:xz`, commons-compressのtar.xz対応に使用) | パブリックドメイン |
 | junrar (`com.github.junrar:junrar`) | UnRARライセンス(下記参照) |
+| libadb-android (`com.github.MuntashirAkon:libadb-android`) | GPL-3.0-or-later(デュアルライセンスのうちこちらを採用) |
 
 GPL-3.0の下で本プロジェクト全体を配布する場合、これらApache-2.0/パブリックドメインの
 ライブラリとの組み合わせは問題ありません(Apache-2.0はGPL-3.0とのリンクが許容されています)。

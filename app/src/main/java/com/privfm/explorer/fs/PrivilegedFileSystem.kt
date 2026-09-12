@@ -78,21 +78,33 @@ class PrivilegedFileSystem(
     }
 
     /**
-     * `ls -la`の日時欄(例: "Aug 15 12:34" や "Aug 15  2025")をベストエフォートで
-     * エポックミリ秒に変換する。端末のlsフレーバーによって書式が異なるため、
-     * よくある2パターンだけ試し、どちらも失敗したら0を返す(呼び出し側は
-     * それをソートキーとしてのみ使うため、失敗しても表示自体は壊れない)。
+     * `ls -la`の日時欄をベストエフォートでエポックミリ秒に変換する。
+     * 端末のlsフレーバーによって書式が異なるため、複数パターンを試す:
+     *  - "yyyy-MM-dd HH:mm" : Android実機で使われるtoybox/busyboxのデフォルト形式
+     *    (例: "2026-08-15 12:34")。これが本来最も優先して試すべきパターンだったが、
+     *    以前はGNU coreutils形式("MMM d HH:mm"等)しか試しておらず、実機では
+     *    常にパース失敗→lastModifiedMillisが全件0になり、「更新日時」ソートを
+     *    選んでも実質何も起きない(名前順のまま)という不具合になっていた。
+     *  - "MMM d HH:mm" / "MMM d yyyy" : GNU coreutils由来のlsを使うカスタムROM等向け
      */
     private fun parseLsDate(label: String): Long {
-        val patterns = listOf("MMM d HH:mm", "MMM d yyyy", "MMM  d HH:mm", "MMM  d yyyy")
-        for (pattern in patterns) {
+        val normalized = label.trim().replace(Regex("\\s+"), " ")
+        val patterns = listOf(
+            "yyyy-MM-dd HH:mm" to false,
+            "yyyy-MM-dd" to true,
+            "MMM d HH:mm" to false,
+            "MMM d yyyy" to true,
+            "MMM  d HH:mm" to false,
+            "MMM  d yyyy" to true
+        )
+        for ((pattern, hasYear) in patterns) {
             try {
                 val sdf = java.text.SimpleDateFormat(pattern, java.util.Locale.ENGLISH)
                 sdf.isLenient = true
-                val parsed = sdf.parse(label.trim().replace(Regex("\\s+"), " ")) ?: continue
+                val parsed = sdf.parse(normalized) ?: continue
                 val cal = java.util.Calendar.getInstance()
                 cal.time = parsed
-                if (!pattern.contains("yyyy")) {
+                if (!hasYear) {
                     // 年が省略される書式(直近1年以内のファイル)は現在の年を仮定する
                     val nowYear = java.util.Calendar.getInstance().get(java.util.Calendar.YEAR)
                     cal.set(java.util.Calendar.YEAR, nowYear)
@@ -185,6 +197,12 @@ class PrivilegedFileSystem(
         val result = shell.exec(wrap("mkdir -p \"$path\""))
         return if (result.isSuccess) Result.success(Unit)
         else Result.failure(IllegalStateException(result.stderr.ifBlank { "ディレクトリ作成に失敗しました" }))
+    }
+
+    /** 指定パスにファイル/ディレクトリが既に存在するかどうか(貼り付け時の名前衝突判定などに使用) */
+    fun exists(path: String): Boolean {
+        val result = shell.exec(wrap("[ -e \"$path\" ] && echo Y || echo N"))
+        return result.isSuccess && result.stdout.trim() == "Y"
     }
 
     fun createEmptyFile(path: String): Result<Unit> {

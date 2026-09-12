@@ -4,6 +4,7 @@ package com.privfm.explorer
 import android.app.Application
 import com.google.android.material.color.DynamicColors
 import com.privfm.explorer.util.AppPreferences
+import com.privfm.explorer.shell.ShellManager
 import rikka.shizuku.Shizuku
 
 class PrivFmApplication : Application() {
@@ -12,6 +13,7 @@ class PrivFmApplication : Application() {
         super.onCreate()
 
         AppPreferences.init(this)
+        ShellManager.init(this)
 
         // Android 12+ では端末の壁紙から生成されるMaterial You(Dynamic Color)を最優先で適用する。
         // これはAOSP自身(設定アプリ・ファイルアプリ等)が使う標準の配色機構であり、

@@ -1,6 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.drawerlayout.widget.DrawerLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/drawerLayout"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+<LinearLayout
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
@@ -92,3 +97,20 @@
     </FrameLayout>
 
 </LinearLayout>
+
+    <!-- クイックアクセス用のナビゲーションドロワー。
+         Amaze File Manager / Material Files / AOSP DocumentsUI と同様、
+         「よく使う場所」への導線をオーバーフローメニューの奥に埋めず、
+         スワイプ or ハンバーガーアイコンでいつでも開けるようにする。
+         メニュー項目はコードから動的に組み立てる(SAFブックマーク等が
+         実行時に増減するため、静的なmenu XMLではなくNavigationView#getMenu()
+         を直接操作する)。 -->
+    <com.google.android.material.navigation.NavigationView
+        android:id="@+id/navigationView"
+        android:layout_width="wrap_content"
+        android:layout_height="match_parent"
+        android:layout_gravity="start"
+        android:background="@color/content_surface"
+        app:headerLayout="@layout/nav_header_main" />
+
+</androidx.drawerlayout.widget.DrawerLayout>

@@ -20,6 +20,9 @@ Licensed under the GNU General Public License v3.0 or later — see [LICENSE](LI
   FileTypeMapと同様の「カテゴリ分類方式」を採用)
 - **Shizuku連携**: [Shizuku](https://shizuku.rikka.app/) を使い、rootなしでADB相当のshell権限を利用
 - **Root連携**: root化端末では `su` 経由でも動作(Shizuku未使用時のフォールバック)
+- **ADB連携(Shizuku不要)**: ワイヤレスデバッグのペアリングコードを使い、Shizukuアプリを
+  インストールしなくてもADB(shell)権限を取得できます([App Manager](https://github.com/MuntashirAkon/AppManager)
+  が使っているものと同じ`libadb-android`ライブラリを利用)
 - **debuggableアプリのデータ領域へのアクセス**: `android:debuggable="true"` の対象アプリに対して、
   `run-as` 経由で `/data/data/<package>` 以下を閲覧・編集できます(Android Studioのデバッガが
   使うのと同じ、OS標準の仕組みです)
@@ -32,6 +35,12 @@ Licensed under the GNU General Public License v3.0 or later — see [LICENSE](LI
   ブラウズと全く同じ画面(複数選択・コピー/切り取り/貼り付け・圧縮/展開・検索・並び替え)が
   そのまま使えます
 - **ダークモード対応**: システムのダーク/ライト設定に応じて配色を自動切り替え
+- **Termux連携**: フォルダを長押し、またはナビゲーションドロワーから「Termuxで開く」で
+  対象フォルダのターミナルセッションを直接開けます(要Termuxインストール・設定)
+- **外部SAF連携**: SAF(`ACTION_OPEN_DOCUMENT_TREE`)でSDカード等を選択すると、実際の
+  絶対パスを推定してブックマークに追加します(以降は通常のファイル操作でアクセス)
+- **ナビゲーションドロワー**: よく使う場所・外部ストレージ・各種ツールへの導線を、
+  ハンバーガーアイコン(スワイプでも可)から開けます
 - **Material You (Dynamic Color)**: Android 12+では端末の壁紙から生成される配色に対応
   (AOSPの標準アプリと同じ配色機構)。非対応端末では静的なフォールバックテーマを使用
 - **アクセスできる範囲は全て閲覧可能**: 起動直後は内部ストレージを表示しつつ、実際のルート
@@ -95,8 +104,8 @@ Gradle Wrapperのバイナリはリポジトリに含めず、`gradle/actions/se
 タグをpushするか、GitHub UIでReleaseを作成すると、ビルドされたAPKが自動的にそのReleaseへ添付されます。
 
 ```bash
-git tag v5.3.4
-git push origin v5.3.4
+git tag v5.4.0
+git push origin v5.4.0
 ```
 
 通常のブランチpushやPull Requestではこのステップはスキップされ、Releaseページには影響しません。

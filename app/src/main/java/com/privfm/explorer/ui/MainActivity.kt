@@ -30,6 +30,8 @@ import com.privfm.explorer.shell.ShellManager
 import com.privfm.explorer.shell.ShizukuShell
 import com.privfm.explorer.util.AppPreferences
 import com.privfm.explorer.util.ExternalOpener
+import com.privfm.explorer.util.SafPathResolver
+import com.privfm.explorer.util.TermuxIntegration
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -63,6 +65,7 @@ class MainActivity : AppCompatActivity() {
     private var currentPath: String = "/"
     private var currentEntries: List<FileEntry> = emptyList()
     private var searchQuery: String = ""
+    private var searchMenuItem: android.view.MenuItem? = null
     private var sortMode: SortMode = AppPreferences.sortMode
     private var sortAscending: Boolean = AppPreferences.sortAscending
 
@@ -106,11 +109,13 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
         setSupportActionBar(binding.toolbar)
-        // ツールバー左上に「上のディレクトリへ戻る」矢印を表示する(AOSP DocumentsUIの
-        // Upナビゲーション相当)。呼び出し元アプリへ戻る手段はシステムの戻るジェスチャー/
-        // ボタン(onBackPressed)に委ねる。
+        // ツールバー左上のアイコンは、Amaze/Material Files/AOSP DocumentsUIと同様に
+        // 常時「クイックアクセスを開くハンバーガー」の役割に統一する。
+        // ディレクトリの階層移動(上へ)は一覧先頭の".."行に一本化し(既存機能)、
+        // ここでは行わない。選択モード中のみ「選択解除」の×アイコンに切り替わる
+        // (setSelectionMode内で制御)。
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
-        supportActionBar?.setHomeAsUpIndicator(R.drawable.ic_arrow_back)
+        supportActionBar?.setHomeAsUpIndicator(R.drawable.ic_menu)
 
         rootPath = intent.getStringExtra(EXTRA_ROOT_PATH) ?: rootPath
         runAsPackage = intent.getStringExtra(EXTRA_RUN_AS_PACKAGE)
@@ -119,6 +124,17 @@ class MainActivity : AppCompatActivity() {
         // ストレージ領域から始める。EXTRA_START_PATHで明示的に上書き可能。
         currentPath = intent.getStringExtra(EXTRA_START_PATH)
             ?: if (runAsPackage == null && rootPath == "/") "/storage/emulated/0" else rootPath
+        // GET_CONTENT/PICK/CREATE_DOCUMENTで他アプリから呼び出された場合(EXTRA_ROOT_PATHは
+        // 渡らない)、rootPathを"/"のままにしていると、実際の初期表示
+        // ("/storage/emulated/0")との食い違いにより、戻るボタンを押した際に
+        // 本来の起点を通り越して延々と上のディレクトリへ遡ってしまい、通常権限では
+        // 権限不足で一覧取得に失敗するディレクトリに突き当たって「戻れなくなる」
+        // 不具合があった。ピッカー系の呼び出しに限り、実際に表示を始めるディレクトリを
+        // そのままrootPathとして扱う(アプリを通常起動した場合は、これまで通り
+        // ファイルシステム全体を自由に行き来できるようにするため、他の起動経路では変更しない)。
+        if (isPickMode || isCreateDocumentMode) {
+            rootPath = currentPath
+        }
         supportActionBar?.title = intent.getStringExtra(EXTRA_TITLE) ?: getString(R.string.app_name)
 
         // 他アプリからGET_CONTENT/PICK/CREATE_DOCUMENTで呼び出された場合は「選択モード」になる。
@@ -142,6 +158,8 @@ class MainActivity : AppCompatActivity() {
         )
         binding.fileListView.layoutManager = LinearLayoutManager(this)
         binding.fileListView.adapter = adapter
+
+        setupNavigationDrawer()
 
         binding.fabCreate.setOnClickListener {
             if (isCreateDocumentMode) createDocumentAndReturn() else showCreateChoiceMenu(it)
@@ -220,11 +238,33 @@ class MainActivity : AppCompatActivity() {
         if (!selectionMode) {
             menu.findItem(R.id.action_paste)?.isEnabled = !ClipboardHolder.isEmpty()
             val searchItem = menu.findItem(R.id.action_search)
+            searchMenuItem = searchItem
             val searchView = searchItem?.actionView as? SearchView
             searchView?.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
                 override fun onQueryTextSubmit(query: String?): Boolean = true
                 override fun onQueryTextChange(newText: String?): Boolean {
                     searchQuery = newText.orEmpty()
+                    applyFilterAndSort()
+                    return true
+                }
+            })
+            // 選択モードへ出入りするとinvalidateOptionsMenu()で検索メニュー自体が
+            // 作り直され、以前入力していた検索語がそのまま残っているにもかかわらず、
+            // SearchViewは折りたたまれた「検索していない」見た目で再生成されてしまい、
+            // 閉じる手段(×ボタン)も無いまま検索状態から抜け出せなくなるバグがあった。
+            // 検索語が残っている場合は展開状態を復元し、ユーザーが続きを確認・
+            // クリアできるようにする。
+            if (searchQuery.isNotBlank()) {
+                searchItem.expandActionView()
+                searchView?.setQuery(searchQuery, false)
+            }
+            // SearchViewの折りたたみ(端末の戻るボタン・×ボタン経由)を検知して
+            // 検索状態を確実にリセットする。これが無いと「検索を閉じたつもりが
+            // 実は検索語だけが残ったまま」という状態になり得る。
+            searchItem?.setOnActionExpandListener(object : android.view.MenuItem.OnActionExpandListener {
+                override fun onMenuItemActionExpand(item: android.view.MenuItem): Boolean = true
+                override fun onMenuItemActionCollapse(item: android.view.MenuItem): Boolean {
+                    searchQuery = ""
                     applyFilterAndSort()
                     return true
                 }
@@ -256,19 +296,17 @@ class MainActivity : AppCompatActivity() {
                 }
                 true
             }
-            R.id.action_app_data -> { startActivity(Intent(this, AppDataBrowserActivity::class.java)); true }
-            R.id.action_settings -> { startActivity(Intent(this, SettingsActivity::class.java)); true }
             R.id.action_sort -> { showSortDialog(); true }
-            R.id.action_quick_access -> { showQuickAccessDialog(); true }
-            R.id.action_go_to_path -> { showGoToPathDialog(); true }
-            R.id.action_jump_foreground_app -> { jumpToForegroundApp(); true }
             R.id.action_new_folder -> { showCreateDialog(isDirectory = true); true }
             R.id.action_new_file -> { showCreateDialog(isDirectory = false); true }
             R.id.action_paste -> { pasteClipboard(); true }
             R.id.action_selection_mode -> { setSelectionMode(true); true }
             R.id.action_delete_selected -> { confirmDeleteSelected(); true }
             R.id.action_selection_more -> { showSelectionMoreMenu(); true }
-            android.R.id.home -> { navigateUp(); true }
+            android.R.id.home -> {
+                if (selectionMode) setSelectionMode(false) else binding.drawerLayout.openDrawer(binding.navigationView)
+                true
+            }
             else -> super.onOptionsItemSelected(item)
         }
     }
@@ -377,21 +415,129 @@ class MainActivity : AppCompatActivity() {
 
     // ---- クイックアクセス・パス直接指定 ----
 
-    private fun showQuickAccessDialog() {
+    /**
+     * クイックアクセス(内部ストレージ・SAFブックマーク・特殊な操作)をナビゲーション
+     * ドロワーへ組み込む。Amaze File Manager / Material Files / AOSP DocumentsUIと
+     * 同様、これらの導線をオーバーフローメニューの奥に埋めず、スワイプまたは
+     * ハンバーガーアイコンでいつでも開けるようにする。
+     *
+     * NavigationViewのメニューは、SAFブックマークが実行時に増減するため、
+     * 静的なmenu XMLではなくコードから都度組み立て直す。
+     */
+    private fun setupNavigationDrawer() {
+        binding.navigationView.setNavigationItemSelectedListener { item ->
+            binding.drawerLayout.closeDrawers()
+            when (item.itemId) {
+                NAV_ID_ADD_SAF -> launchSafTreePicker()
+                NAV_ID_GO_TO_PATH -> showGoToPathDialog()
+                NAV_ID_JUMP_FOREGROUND -> jumpToForegroundApp()
+                NAV_ID_TERMUX -> openInTermux(currentPath)
+                NAV_ID_APP_DATA -> startActivity(Intent(this, AppDataBrowserActivity::class.java))
+                NAV_ID_SETTINGS -> startActivity(Intent(this, SettingsActivity::class.java))
+                else -> {
+                    val path = navPlacePaths[item.itemId]
+                    val bookmarkPath = navBookmarkPaths[item.itemId]
+                    when {
+                        path != null -> loadDirectory(path)
+                        bookmarkPath != null -> loadDirectory(bookmarkPath)
+                    }
+                }
+            }
+            true
+        }
+        rebuildNavigationDrawerMenu()
+    }
+
+    private val navPlacePaths = mutableMapOf<Int, String>()
+    private val navBookmarkPaths = mutableMapOf<Int, String>()
+
+    private fun rebuildNavigationDrawerMenu() {
+        val menu = binding.navigationView.menu
+        menu.clear()
+        navPlacePaths.clear()
+        navBookmarkPaths.clear()
+
+        val placesGroup = menu.addSubMenu("よく使う場所")
         val places = linkedMapOf(
-            "内部ストレージ (/storage/emulated/0)" to "/storage/emulated/0",
-            "Android/data" to "/storage/emulated/0/Android/data",
+            "内部ストレージ" to "/storage/emulated/0",
             "Download" to "/storage/emulated/0/Download",
+            "Android/data" to "/storage/emulated/0/Android/data",
             "デバイスのルート (/)" to "/",
             "/system" to "/system",
-            "/data" to "/data",
-            "/proc" to "/proc"
+            "/data" to "/data"
         )
-        MaterialAlertDialogBuilder(this)
-            .setTitle(getString(R.string.action_quick_access))
-            .setItems(places.keys.toTypedArray()) { _, which ->
-                loadDirectory(places.values.toList()[which])
+        var nextId = NAV_ID_PLACES_BASE
+        for ((label, path) in places) {
+            val id = nextId++
+            placesGroup.add(0, id, 0, label).setIcon(R.drawable.ic_folder)
+            navPlacePaths[id] = path
+        }
+
+        // SAF(ACTION_OPEN_DOCUMENT_TREE)経由で追加したブックマーク
+        // (SDカード等、通常権限だけではアクセスできない領域向け)
+        val bookmarks = AppPreferences.safBookmarks
+        if (bookmarks.isNotEmpty()) {
+            val bookmarkGroup = menu.addSubMenu("外部ストレージ")
+            var bookmarkId = NAV_ID_BOOKMARKS_BASE
+            for ((name, path) in bookmarks) {
+                val id = bookmarkId++
+                bookmarkGroup.add(0, id, 0, name).setIcon(R.drawable.ic_folder)
+                navBookmarkPaths[id] = path
             }
+        }
+        menu.add(0, NAV_ID_ADD_SAF, 0, "＋ 外部ストレージを追加").setIcon(R.drawable.ic_add)
+
+        val toolsGroup = menu.addSubMenu("ツール")
+        toolsGroup.add(0, NAV_ID_GO_TO_PATH, 0, "パスを指定して移動")
+        toolsGroup.add(0, NAV_ID_JUMP_FOREGROUND, 0, getString(R.string.action_jump_foreground_app))
+        toolsGroup.add(0, NAV_ID_APP_DATA, 0, getString(R.string.menu_app_data))
+        toolsGroup.add(0, NAV_ID_TERMUX, 0, getString(R.string.action_open_termux))
+        menu.add(0, NAV_ID_SETTINGS, 0, getString(R.string.menu_settings)).setIcon(R.drawable.ic_close)
+    }
+
+    /**
+     * SAF(ACTION_OPEN_DOCUMENT_TREE)でフォルダを選んでもらい、実際の絶対パスを
+     * 推定してクイックアクセスに追加する。詳細は[SafPathResolver]のコメントを参照。
+     * SAFの許可自体は「実パスを特定する」ためだけに使い、以降のファイル操作は
+     * 通常通り特権シェル経由で行う(SAFのcontent://を経由し続けるわけではない)。
+     */
+    private fun launchSafTreePicker() {
+        safTreePickerLauncher.launch(null)
+    }
+
+    private val safTreePickerLauncher = registerForActivityResult(
+        ActivityResultContracts.OpenDocumentTree()
+    ) { uri ->
+        if (uri == null) return@registerForActivityResult
+        try {
+            contentResolver.takePersistableUriPermission(
+                uri,
+                Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+            )
+        } catch (e: Exception) {
+            // 永続化に失敗しても、今回のパス推定自体は試す
+        }
+        val resolvedPath = SafPathResolver.resolveTreeUriToPath(this, uri)
+        if (resolvedPath == null) {
+            MaterialAlertDialogBuilder(this)
+                .setTitle("パスを特定できませんでした")
+                .setMessage("選択された場所の実際の保存先を特定できませんでした。お使いの端末では、この方法での外部ストレージ追加に対応していない可能性があります。")
+                .setPositiveButton("OK", null)
+                .show()
+            return@registerForActivityResult
+        }
+        val input = android.widget.EditText(this).apply { setText(resolvedPath.substringAfterLast('/')) }
+        MaterialAlertDialogBuilder(this)
+            .setTitle("ブックマーク名")
+            .setMessage("推定した保存先: $resolvedPath")
+            .setView(input)
+            .setPositiveButton("追加") { _, _ ->
+                val name = input.text.toString().trim().ifEmpty { resolvedPath.substringAfterLast('/') }
+                AppPreferences.addSafBookmark(name, resolvedPath)
+                rebuildNavigationDrawerMenu()
+                loadDirectory(resolvedPath)
+            }
+            .setNegativeButton("キャンセル", null)
             .show()
     }
 
@@ -626,7 +772,7 @@ class MainActivity : AppCompatActivity() {
         if (enabled) {
             supportActionBar?.setHomeAsUpIndicator(R.drawable.ic_close)
         } else {
-            supportActionBar?.setHomeAsUpIndicator(null)
+            supportActionBar?.setHomeAsUpIndicator(R.drawable.ic_menu)
         }
         supportActionBar?.title = if (enabled) "${selectedPaths.size}件" else (intent.getStringExtra(EXTRA_TITLE) ?: getString(R.string.app_name))
     }
@@ -644,12 +790,36 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    /** 検索語をクリアし、一覧を通常表示に戻す(検索結果に対する操作が完了した後などに呼ぶ) */
+    private fun clearSearch() {
+        if (searchQuery.isBlank()) return
+        searchQuery = ""
+        applyFilterAndSort()
+        invalidateOptionsMenu()
+    }
+
     private fun copySelectedToClipboard(mode: ClipboardHolder.Mode) {
         val entries = currentEntries.filter { selectedPaths.contains(it.path) }
             .map { ClipboardHolder.Entry(it.path, it.name, it.isDirectory) }
         ClipboardHolder.set(entries, mode)
-        Toast.makeText(this, "${entries.size}件を${if (mode == ClipboardHolder.Mode.CUT) "切り取り" else "コピー"}しました", Toast.LENGTH_SHORT).show()
         setSelectionMode(false)
+        clearSearch()
+        showClipboardReadySnackbar(entries.size, mode)
+    }
+
+    /**
+     * コピー/切り取り後、Amaze File Manager等の一般的なファイルマネージャーと同様、
+     * 一瞬で消えるToastだけでなく「あと何件貼り付け可能か」が分かる、押すまで
+     * 消えないSnackbarを表示する(「貼り付け」「取消」ボタン付き)。
+     * 以前はToastのみで、コピー内容を後から確認・取り消す手段が無かった。
+     */
+    private fun showClipboardReadySnackbar(count: Int, mode: ClipboardHolder.Mode) {
+        val verb = if (mode == ClipboardHolder.Mode.CUT) "切り取り" else "コピー"
+        com.google.android.material.snackbar.Snackbar
+            .make(binding.fileListView, "$count 件を${verb}しました。貼り付け先のフォルダへ移動してください", com.google.android.material.snackbar.Snackbar.LENGTH_INDEFINITE)
+            .setAction("貼り付け") { pasteClipboard() }
+            .setActionTextColor(getColor(R.color.chrome_tint))
+            .show()
     }
 
     private fun pasteClipboard() {
@@ -660,16 +830,40 @@ class MainActivity : AppCompatActivity() {
             val fs = PrivilegedFileSystem(ShellManager.current(), runAsPackage)
             var okCount = 0
             for (item in items) {
-                val dest = "${currentPath.trimEnd('/')}/${item.name}"
+                // 貼り付け先に同名のファイル/フォルダが既にある場合、多くのファイル
+                // マネージャー(Amaze等)と同様に無言で上書きするのではなく、
+                // "name (1)"のように自動的にリネームして衝突を避ける。
+                val dest = resolveUniqueDestination(fs, currentPath, item.name)
                 val result = if (cutMode) fs.rename(item.path, dest) else fs.copy(item.path, dest)
                 if (result.isSuccess) okCount++
             }
             withContext(Dispatchers.Main) {
                 Toast.makeText(this@MainActivity, "$okCount / ${items.size} 件を貼り付けました", Toast.LENGTH_SHORT).show()
                 if (cutMode) ClipboardHolder.clear()
+                invalidateOptionsMenu()
                 loadDirectory(currentPath)
             }
         }
+    }
+
+    /**
+     * 貼り付け先に同名のエントリが既にある場合、"name (1).ext"のように
+     * 末尾へ連番を振って衝突しないパスを返す(拡張子はできるだけ保持する)。
+     */
+    private fun resolveUniqueDestination(fs: PrivilegedFileSystem, destDir: String, originalName: String): String {
+        val baseDir = destDir.trimEnd('/')
+        var candidate = "$baseDir/$originalName"
+        if (!fs.exists(candidate)) return candidate
+        val dotIndex = originalName.lastIndexOf('.')
+        val hasExt = dotIndex > 0
+        val stem = if (hasExt) originalName.substring(0, dotIndex) else originalName
+        val ext = if (hasExt) originalName.substring(dotIndex) else ""
+        var counter = 1
+        do {
+            candidate = "$baseDir/$stem ($counter)$ext"
+            counter++
+        } while (fs.exists(candidate) && counter < 1000)
+        return candidate
     }
 
     private fun confirmDeleteSelected() {
@@ -1019,27 +1213,77 @@ class MainActivity : AppCompatActivity() {
         if (entry.isParentEntry) return false
         if (selectionMode) { toggleSelection(entry); return true }
         // 「開き方」はタップ側のメニューに一本化したため、長押しメニューは
-        // 削除・リネーム・圧縮・展開・パーミッション変更といった、より詳しい操作専用にする。
+        // 削除・リネーム・圧縮・展開・パーミッション変更・コピー/切り取りといった、
+        // より詳しい操作専用にする。
+        // (以前は選択モードにしてからでないとコピー/切り取りができず、単一ファイルへの
+        // よく行う操作としては手数が多かったため、長押しからも直接行えるようにした)
+        //
+        // ラベルと処理をペアの配列で管理し、以前あったような「オプションの並びを
+        // 変えたら分岐のインデックスがずれる」事故を防ぐ。
         val isArchive = !entry.isDirectory && ArchiveUtil.detectFormat(entry.name) != null
-        val options = mutableListOf<String>()
-        if (isArchive) options.add(getString(R.string.action_extract))
-        options.add(getString(R.string.action_compress))
-        options.addAll(listOf("削除", "リネーム", "パーミッションを変更"))
+        val actions = mutableListOf<Pair<String, () -> Unit>>()
+        if (isArchive) actions.add(getString(R.string.action_extract) to { extractArchive(entry) })
+        actions.add(getString(R.string.action_compress) to { compressSingle(entry) })
+        actions.add(getString(R.string.action_copy) to { copySingleToClipboard(entry, ClipboardHolder.Mode.COPY) })
+        actions.add(getString(R.string.action_cut) to { copySingleToClipboard(entry, ClipboardHolder.Mode.CUT) })
+        if (entry.isDirectory) actions.add("Termuxで開く" to { openInTermux(entry.path) })
+        actions.add("削除" to { confirmDelete(entry) })
+        actions.add("リネーム" to { renameEntry(entry) })
+        actions.add("パーミッションを変更" to { showChmodDialog(entry) })
 
-        showActionMenu(entry.name, options) { which ->
-            var idx = which
-            if (isArchive) {
-                if (idx == 0) { extractArchive(entry); return@showActionMenu }
-                idx--
-            }
-            when (idx) {
-                0 -> compressSingle(entry)
-                1 -> confirmDelete(entry)
-                2 -> renameEntry(entry)
-                3 -> showChmodDialog(entry)
-            }
+        showActionMenu(entry.name, actions.map { it.first }) { which ->
+            actions[which].second.invoke()
         }
         return true
+    }
+
+    /** 単一ファイル/フォルダを直接クリップボードへコピー/切り取りする(長押しメニューから) */
+    private fun copySingleToClipboard(entry: FileEntry, mode: ClipboardHolder.Mode) {
+        ClipboardHolder.set(listOf(ClipboardHolder.Entry(entry.path, entry.name, entry.isDirectory)), mode)
+        invalidateOptionsMenu()
+        showClipboardReadySnackbar(1, mode)
+    }
+
+    /**
+     * 現在のディレクトリ、または長押ししたフォルダをTermuxのターミナルで開く。
+     * Termuxが入っていなければ公式配布ページへ誘導し、権限が無ければ設定を促す。
+     */
+    private fun openInTermux(path: String) {
+        if (!TermuxIntegration.isTermuxInstalled(this)) {
+            MaterialAlertDialogBuilder(this)
+                .setTitle("Termuxが見つかりません")
+                .setMessage("Termuxをインストールすると、このフォルダをターミナルで直接開けます。")
+                .setPositiveButton("ダウンロードページを開く") { _, _ -> TermuxIntegration.openTermuxDownloadPage(this) }
+                .setNegativeButton("キャンセル", null)
+                .show()
+            return
+        }
+        if (!TermuxIntegration.hasRunCommandPermission(this)) {
+            MaterialAlertDialogBuilder(this)
+                .setTitle("権限が必要です")
+                .setMessage(
+                    "Termux連携には com.termux.permission.RUN_COMMAND 権限が必要です。" +
+                        "端末の設定アプリからこのアプリの権限一覧を開き、許可してください。\n\n" +
+                        "また、Termux側で ~/.termux/termux.properties に " +
+                        "allow-external-apps=true を追記し、termux-reload-settings を" +
+                        "実行しておく必要があります。"
+                )
+                .setPositiveButton("設定を開く") { _, _ ->
+                    startActivity(
+                        Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                            data = android.net.Uri.parse("package:$packageName")
+                        }
+                    )
+                }
+                .setNegativeButton("キャンセル", null)
+                .show()
+            return
+        }
+        try {
+            TermuxIntegration.openTermuxHere(this, path)
+        } catch (e: Exception) {
+            Toast.makeText(this, "Termuxの起動に失敗しました: ${e.message}", Toast.LENGTH_LONG).show()
+        }
     }
 
     /**
@@ -1128,7 +1372,23 @@ class MainActivity : AppCompatActivity() {
             .show()
     }
 
+    /**
+     * 戻るキーの優先順位は、AOSP DocumentsUIの実際のソースコード
+     * (`SharedInputHandler.onBack()`)で確認した順序に合わせている:
+     * ドロワーが開いていれば閉じる → 検索中なら検索をキャンセル →
+     * 選択中なら選択解除 → それ以外はディレクトリを1つ上へ(ルートならアプリを抜ける)。
+     * 以前は「検索をキャンセルする」段階が抜けており、検索中に選択モードへ入って
+     * しまうと検索状態が宙に浮いたまま残ってしまう不具合の一因になっていた。
+     */
     override fun onBackPressed() {
+        if (binding.drawerLayout.isDrawerOpen(binding.navigationView)) {
+            binding.drawerLayout.closeDrawers()
+            return
+        }
+        if (searchMenuItem?.isActionViewExpanded == true) {
+            searchMenuItem?.collapseActionView()
+            return
+        }
         if (selectionMode) { setSelectionMode(false); return }
         if (currentPath.trimEnd('/') == rootPath.trimEnd('/')) {
             // ルートより上には行かない(runAsPackageブラウズ時は呼び出し元のアプリ一覧へ戻る)
@@ -1180,5 +1440,16 @@ class MainActivity : AppCompatActivity() {
         const val EXTRA_RUN_AS_PACKAGE = "extra_run_as_package"
         const val EXTRA_TITLE = "extra_title"
         const val EXTRA_START_PATH = "extra_start_path"
+
+        // ナビゲーションドロワーのメニューID(動的に組み立てるため、
+        // menu XMLではなくここで採番する)
+        private const val NAV_ID_ADD_SAF = 9001
+        private const val NAV_ID_GO_TO_PATH = 9002
+        private const val NAV_ID_JUMP_FOREGROUND = 9003
+        private const val NAV_ID_TERMUX = 9004
+        private const val NAV_ID_APP_DATA = 9005
+        private const val NAV_ID_SETTINGS = 9006
+        private const val NAV_ID_PLACES_BASE = 9100
+        private const val NAV_ID_BOOKMARKS_BASE = 9200
     }
 }

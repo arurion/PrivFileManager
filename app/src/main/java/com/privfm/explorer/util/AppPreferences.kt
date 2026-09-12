@@ -23,6 +23,9 @@ object AppPreferences {
     private const val KEY_SORT_MODE = "sort_mode"
     private const val KEY_SORT_ASCENDING = "sort_ascending"
     private const val KEY_BOTTOM_SHEET_MENUS = "bottom_sheet_menus"
+    private const val KEY_SAF_BOOKMARKS = "saf_bookmarks"
+    private const val KEY_ADB_HOST = "adb_host"
+    private const val KEY_ADB_PORT = "adb_port"
 
     private lateinit var prefs: SharedPreferences
     private var initialized = false
@@ -65,4 +68,45 @@ object AppPreferences {
     var useBottomSheetMenus: Boolean
         get() = prefs.getBoolean(KEY_BOTTOM_SHEET_MENUS, true)
         set(value) = prefs.edit().putBoolean(KEY_BOTTOM_SHEET_MENUS, value).apply()
+
+    /**
+     * SAF(`ACTION_OPEN_DOCUMENT_TREE`)経由で追加した「外部ストレージ」のブックマーク。
+     * `名前\tパス` 形式の行を改行区切りで保存する(JSON等の依存を増やさないための簡易実装)。
+     * 名前・パスのどちらにもタブ文字・改行が含まれない前提(通常のファイル名では起こらない)。
+     */
+    var safBookmarks: List<Pair<String, String>>
+        get() = prefs.getString(KEY_SAF_BOOKMARKS, "")
+            .orEmpty()
+            .lineSequence()
+            .filter { it.isNotBlank() }
+            .mapNotNull { line ->
+                val parts = line.split("\t", limit = 2)
+                if (parts.size == 2) parts[0] to parts[1] else null
+            }
+            .toList()
+        set(value) {
+            val serialized = value.joinToString("\n") { "${it.first}\t${it.second}" }
+            prefs.edit().putString(KEY_SAF_BOOKMARKS, serialized).apply()
+        }
+
+    fun addSafBookmark(name: String, path: String) {
+        safBookmarks = safBookmarks + (name to path)
+    }
+
+    fun removeSafBookmark(path: String) {
+        safBookmarks = safBookmarks.filterNot { it.second == path }
+    }
+
+    /**
+     * Shizukuを使わず、ADB(Wireless debugging)へ直接接続するためのホスト/ポート。
+     * 端末の「開発者向けオプション > ワイヤレスデバッグ」画面に表示される値を
+     * ユーザー自身が入力する想定(詳細は[com.privfm.explorer.shell.AdbShell]を参照)。
+     */
+    var adbHost: String
+        get() = prefs.getString(KEY_ADB_HOST, "").orEmpty()
+        set(value) = prefs.edit().putString(KEY_ADB_HOST, value).apply()
+
+    var adbPort: Int
+        get() = prefs.getInt(KEY_ADB_PORT, 0)
+        set(value) = prefs.edit().putInt(KEY_ADB_PORT, value).apply()
 }

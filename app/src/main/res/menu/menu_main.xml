@@ -7,15 +7,14 @@
         app:showAsAction="always"
         app:actionViewClass="androidx.appcompat.widget.SearchView" />
     <item android:id="@+id/action_sort" android:title="@string/action_sort" app:showAsAction="never" />
-    <item android:id="@+id/action_quick_access" android:title="@string/action_quick_access" app:showAsAction="never" />
-    <item android:id="@+id/action_go_to_path" android:title="@string/action_go_to_path" app:showAsAction="never" />
     <item android:id="@+id/action_new_folder" android:title="@string/action_new_folder" app:showAsAction="never" />
     <item android:id="@+id/action_new_file" android:title="@string/action_new_file" app:showAsAction="never" />
     <item android:id="@+id/action_paste" android:title="@string/action_paste" app:showAsAction="never" />
     <item android:id="@+id/action_selection_mode" android:title="@string/action_selection_mode" app:showAsAction="never" />
     <item android:id="@+id/action_request_shizuku" android:title="@string/menu_request_shizuku" app:showAsAction="never" />
     <item android:id="@+id/action_root_check" android:title="@string/menu_root" app:showAsAction="never" />
-    <item android:id="@+id/action_app_data" android:title="@string/menu_app_data" app:showAsAction="never" />
-    <item android:id="@+id/action_jump_foreground_app" android:title="@string/action_jump_foreground_app" app:showAsAction="never" />
-    <item android:id="@+id/action_settings" android:title="@string/menu_settings" app:showAsAction="never" />
+    <!-- クイックアクセス・パス指定移動・debuggableアプリ一覧・実行中アプリへジャンプ・
+         Termux連携・設定は、増え続けてこのメニュー自体が「ごちゃごちゃ」していたため、
+         Amaze/Material Files/AOSP DocumentsUI同様、常設のナビゲーションドロワー
+         (ハンバーガーアイコン)へ移設した。詳細はMainActivity#setupNavigationDrawerを参照。 -->
 </menu>
